@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -20,16 +21,24 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const JWT_SECRET = process.env.JWT_SECRET || 'sua_chave_secreta_super_segura_123456';
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('⚠️ Variáveis SUPABASE_URL e/ou SUPABASE_ANON_KEY não configuradas!');
-}
+console.log('✓ SUPABASE_URL:', SUPABASE_URL ? '✓ configurada' : '❌ não configurada');
+console.log('✓ SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? '✓ configurada' : '❌ não configurada');
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = createClient(SUPABASE_URL || '', SUPABASE_ANON_KEY || '');
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+
+// Ler HTML uma vez na inicialização
+let htmlContent = '';
+try {
+  const htmlPath = path.join(__dirname, 'public', 'index.html');
+  htmlContent = fs.readFileSync(htmlPath, 'utf8');
+  console.log('✓ HTML carregado com sucesso');
+} catch (err) {
+  console.error('❌ Erro ao carregar HTML:', err.message);
+}
 
 // Middleware de autenticação
 const autenticar = (req, res, next) => {
@@ -195,6 +204,34 @@ app.put('/api/colaboradores/:id', autenticar, async (req, res) => {
   }
 });
 
+// Deletar colaborador
+app.delete('/api/colaboradores/:id', autenticar, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('colaboradores')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    await supabase.from('logs_auditoria').insert({
+      usuario_id: req.usuario.id,
+      acao: 'DELETAR_COLABORADOR',
+      descricao: `Colaborador deletado`,
+      tabela_afetada: 'colaboradores',
+      registro_id: id,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({ sucesso: true, mensagem: 'Colaborador deletado' });
+  } catch (erro) {
+    console.error('Erro ao deletar colaborador:', erro);
+    res.status(500).json({ erro: 'Erro ao deletar colaborador' });
+  }
+});
+
 // ========== ROTAS DE FÉRIAS ==========
 
 // Listar férias de um colaborador
@@ -204,10 +241,7 @@ app.get('/api/colaboradores/:id/ferias', autenticar, async (req, res) => {
 
     const { data, error } = await supabase
       .from('ferias')
-      .select(`
-        *,
-        colaboradores:colaborador_id(nome)
-      `)
+      .select('*')
       .eq('colaborador_id', id)
       .order('data_inicio', { ascending: false });
 
@@ -272,7 +306,7 @@ app.post('/api/ferias', autenticar, async (req, res) => {
     await supabase.from('logs_auditoria').insert({
       usuario_id: req.usuario.id,
       acao: 'REGISTRAR_FERIAS',
-      descricao: `${dias_utilizados} dias de férias registrados para ${colaborador.nome} (${data_inicio} a ${data_fim})`,
+      descricao: `${dias_utilizados} dias de férias registrados para ${colaborador.nome}`,
       tabela_afetada: 'ferias',
       registro_id: ferias.id,
       timestamp: new Date().toISOString()
@@ -285,12 +319,11 @@ app.post('/api/ferias', autenticar, async (req, res) => {
   }
 });
 
-// Deletar férias (com reversão de dias)
+// Deletar férias
 app.delete('/api/ferias/:id', autenticar, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Buscar férias
     const { data: ferias, error: erroFerias } = await supabase
       .from('ferias')
       .select('*')
@@ -327,7 +360,7 @@ app.delete('/api/ferias/:id', autenticar, async (req, res) => {
     await supabase.from('logs_auditoria').insert({
       usuario_id: req.usuario.id,
       acao: 'DELETAR_FERIAS',
-      descricao: `Registro de férias deletado (${ferias.dias_utilizados} dias revertidos)`,
+      descricao: `Registro de férias deletado`,
       tabela_afetada: 'ferias',
       registro_id: id,
       timestamp: new Date().toISOString()
@@ -347,10 +380,7 @@ app.get('/api/auditoria/logs', autenticar, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('logs_auditoria')
-      .select(`
-        *,
-        admins:usuario_id(nome, email)
-      `)
+      .select('*')
       .order('timestamp', { ascending: false })
       .limit(500);
 
@@ -362,8 +392,20 @@ app.get('/api/auditoria/logs', autenticar, async (req, res) => {
   }
 });
 
-// ========== SERVIR HTML ==========
-// O static middleware acima já cuida disso
+// ========== SERVIR HTML NA RAIZ ==========
+
+app.get('/', (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(htmlContent);
+});
+
+// Catch-all para SPA (roteamento frontend)
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(htmlContent);
+  }
+});
 
 // Iniciar servidor
 app.listen(PORT, () => {
