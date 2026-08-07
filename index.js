@@ -366,7 +366,12 @@ app.get('/api/auditoria/logs', autenticar, async (req, res) => {
 // ========== SERVIR HTML ==========
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
+    if (err) {
+      console.error('Erro ao servir index.html:', err);
+      res.status(500).send('Erro ao carregar página');
+    }
+  });
 });
 
 // Iniciar servidor
