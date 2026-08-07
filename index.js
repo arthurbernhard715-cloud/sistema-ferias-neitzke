@@ -21,8 +21,7 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const JWT_SECRET = process.env.JWT_SECRET || 'sua_chave_secreta_super_segura_123456';
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('❌ Variáveis SUPABASE_URL e SUPABASE_ANON_KEY não configuradas!');
-  process.exit(1);
+  console.warn('⚠️ Variáveis SUPABASE_URL e/ou SUPABASE_ANON_KEY não configuradas!');
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -364,15 +363,7 @@ app.get('/api/auditoria/logs', autenticar, async (req, res) => {
 });
 
 // ========== SERVIR HTML ==========
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
-    if (err) {
-      console.error('Erro ao servir index.html:', err);
-      res.status(500).send('Erro ao carregar página');
-    }
-  });
-});
+// O static middleware acima já cuida disso
 
 // Iniciar servidor
 app.listen(PORT, () => {
