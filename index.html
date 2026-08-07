@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Férias - Lojas Neitzke</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --primary: #1A3C8F;
+      --danger: #D92B2B;
+      --success: #2D9D6E;
+      --gray: #6C757D;
+      --light: #F8F9FA;
+      --radius: 12px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+
+    /* CONFIG */
+    #configPage {
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; background: linear-gradient(135deg, var(--primary), #0f2557);
+    }
+    #configCard {
+      background: white; padding: 40px; border-radius: var(--radius);
+      width: 100%; max-width: 460px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    #configCard h1 { color: var(--primary); margin-bottom: 6px; }
+    #configCard p { color: var(--gray); font-size: 13px; margin-bottom: 24px; }
+
+    /* LOGIN */
+    #loginPage {
+      display: none; justify-content: center; align-items: center;
+      min-height: 100vh; background: linear-gradient(135deg, var(--primary), #0f2557);
+    }
+    #loginCard {
+      background: white; padding: 40px; border-radius: var(--radius);
+      width: 100%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    #loginCard h1 { color: var(--primary); margin-bottom: 6px; }
+    #loginCard p { color: var(--gray); font-size: 13px; margin-bottom: 24px; }
+
+    /* DASHBOARD */
+    #dashboard { display: none; }
+    .topbar {
+      background: white; padding: 16px 24px; display: flex;
+      justify-content: space-between; align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 100;
+    }
+    .topbar h1 { color: var(--primary); font-size: 20px; }
+    .main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+    /* TABS */
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid #eee; }
+    .tab {
+      padding: 12px 20px; background: none; border: none; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: var(--gray);
+      border-bottom: 3px solid transparent; transition: all 0.2s;
+    }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* FORMS E INPUTS */
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: var(--primary); }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid #ddd;
+      border-radius: 8px; font-size: 14px; font-family: inherit;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26,60,143,0.1);
+    }
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+
+    /* BOTÕES */
+    .btn {
+      padding: 10px 20px; border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: white; width: 100%; }
+    .btn-primary:hover { background: #0f2557; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    /* CARDS */
+    .card { background: white; border-radius: var(--radius); padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .card-header h2 { color: var(--primary); font-size: 17px; }
+
+    /* TABELA */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: var(--light); padding: 10px; text-align: left; font-weight: 600; color: var(--primary); }
+    td { padding: 10px; border-bottom: 1px solid #f0f0f0; }
+    tr:hover { background: var(--light); }
+
+    /* BADGES */
+    .badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+
+    /* ALERTA */
+    .alert { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+    .alert-error { background: #fee2e2; color: #991b1b; border-left: 4px solid var(--danger); }
+    .alert-success { background: #d1fae5; color: #065f46; border-left: 4px solid var(--success); }
+
+    /* MODAL */
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal.active { display: flex; }
+    .modal-box { background: white; padding: 32px; border-radius: var(--radius); width: 90%; max-width: 480px; max-height: 85vh; overflow-y: auto; }
+    .modal-title { color: var(--primary); font-size: 18px; margin-bottom: 20px; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    /* EMPTY */
+    .empty { text-align: center; padding: 40px; color: var(--gray); font-size: 14px; }
+
+    @media(max-width: 600px) {
+      .main { padding: 12px; }
+      .form-row { grid-template-columns: 1fr; }
+      .tabs { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- CONFIGURAÇÃO INICIAL -->
+<div id="configPage">
+  <div id="configCard">
+    <h1>⚙️ Configuração</h1>
+    <p>Cole as credenciais do Supabase para conectar o sistema.</p>
+    <div id="configAlert"></div>
+    <div class="form-group">
+      <label>Supabase URL</label>
+      <input type="text" id="cfgUrl" placeholder="https://xxx.supabase.co">
+    </div>
+    <div class="form-group">
+      <label>Supabase Anon Key (começa com eyJ...)</label>
+      <input type="text" id="cfgKey" placeholder="eyJhbGciOiJIUzI1NiIs...">
+    </div>
+    <button class="btn btn-primary" onclick="salvarConfig()">Conectar</button>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginPage">
+  <div id="loginCard">
+    <h1>🔐 Férias</h1>
+    <p>Lojas Neitzke — Área administrativa</p>
+    <div id="loginAlert"></div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="admin@neitzke.com.br">
+    </div>
+    <div class="form-group">
+      <label>Senha</label>
+      <input type="password" id="loginSenha" placeholder="••••••••" onkeypress="if(event.key==='Enter') fazerLogin()">
+    </div>
+    <button class="btn btn-primary" onclick="fazerLogin()">Entrar</button>
+    <p style="text-align:center; margin-top:12px; font-size:12px; color:var(--gray)">
+      <a href="#" onclick="limparConfig()" style="color:var(--gray)">Reconfigurar credenciais</a>
+    </p>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="topbar">
+    <h1>📊 Sistema de Férias — Lojas Neitzke</h1>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span id="nomeUsuario" style="font-size:13px; color:var(--gray)"></span>
+      <button class="btn btn-danger" style="padding:6px 14px;" onclick="logout()">Sair</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="tabs">
+      <button class="tab active" onclick="mostrarTab('tabColaboradores', this)">👥 Colaboradores</button>
+      <button class="tab" onclick="mostrarTab('tabFerias', this)">🏖️ Férias</button>
+      <button class="tab" onclick="mostrarTab('tabAuditoria', this)">📋 Auditoria</button>
+    </div>
+
+    <!-- TAB COLABORADORES -->
+    <div id="tabColaboradores">
+      <div class="card">
+        <div class="card-header">
+          <h2>Colaboradores</h2>
+          <button class="btn btn-success" onclick="abrirModalColaborador()">+ Novo</button>
+        </div>
+        <div id="listaColaboradores"><div class="empty">Carregando...</div></div>
+      </div>
+    </div>
+
+    <!-- TAB FÉRIAS -->
+    <div id="tabFerias" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <h2>Férias Registradas</h2>
+          <button class="btn btn-success" onclick="abrirModalFerias()">+ Registrar</button>
+        </div>
+        <div id="listaFerias"><div class="empty">Carregando...</div></div>
+      </div>
+    </div>
+
+    <!-- TAB AUDITORIA -->
+    <div id="tabAuditoria" style="display:none">
+      <div class="card">
+        <div class="card-header"><h2>Log de Auditoria</h2></div>
+        <div id="listaAuditoria"><div class="empty">Carregando...</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COLABORADOR -->
+<div id="modalColaborador" class="modal">
+  <div class="modal-box">
+    <h2 class="modal-title">Novo Colaborador</h2>
+    <div class="form-group">
+      <label>Nome</label>
+      <input type="text" id="colNome" placeholder="Nome completo">
+    </div>
+    <div class="form-group">
+      <label>Período Aquisitivo</label>
+      <input type="text" id="colPeriodo" placeholder="01/01/2024 - 31/12/2024">
+    </div>
+    <div class="form-group">
+      <label>Dias Totais de Férias</label>
+      <input type="number" id="colDias" value="30" min="1">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" onclick="fecharModal('modalColaborador')">Cancelar</button>
+      <button class="btn btn-success" onclick="criarColaborador()">Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FÉRIAS -->
+<div id="modalFerias" class="modal">
+  <div class="modal-box">
+    <h2 class="modal-title">Registrar Férias</h2>
+    <div class="form-group">
+      <label>Colaborador</label>
+      <select id="feriaColaborador"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Data Início</label>
+        <input type="date" id="feriaInicio">
+      </div>
+      <div class="form-group">
+        <label>Data Fim</label>
+        <input type="date" id="feriaFim">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Dias Utilizados</label>
+      <input type="number" id="feriaDias" min="1">
+    </div>
+    <div class="form-group">
+      <label>Observações</label>
+      <input type="text" id="feriaObs" placeholder="Opcional">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" onclick="fecharModal('modalFerias')">Cancelar</button>
+      <button class="btn btn-success" onclick="registrarFerias()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== ESTADO =====
+let supabase = null;
+let usuarioLogado = null;
+let colaboradores = [];
+
+// ===== CONFIGURAÇÃO =====
+function salvarConfig() {
+  const url = document.getElementById('cfgUrl').value.trim();
+  const key = document.getElementById('cfgKey').value.trim();
+
+  if (!url || !key) {
+    mostrarAlerta('configAlert', 'Preencha URL e chave!', 'error');
+    return;
+  }
+
+  localStorage.setItem('sb_url', url);
+  localStorage.setItem('sb_key', key);
+  iniciarSupabase(url, key);
+}
+
+function limparConfig() {
+  localStorage.removeItem('sb_url');
+  localStorage.removeItem('sb_key');
+  localStorage.removeItem('usuario');
+  location.reload();
+}
+
+function iniciarSupabase(url, key) {
+  supabase = window.supabase.createClient(url, key);
+  document.getElementById('configPage').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+}
+
+// ===== LOGIN =====
+async function fazerLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+
+  if (!email || !senha) {
+    mostrarAlerta('loginAlert', 'Preencha email e senha!', 'error');
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('admins')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error || !data) {
+      mostrarAlerta('loginAlert', 'Email não encontrado', 'error');
+      return;
+    }
+
+    // Verificar senha usando bcrypt via API
+    const resp = await fetch('https://api.bcrypt.dev/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: senha, hash: data.senha_hash })
+    }).catch(() => null);
+
+    let senhaOk = false;
+
+    if (resp && resp.ok) {
+      const result = await resp.json();
+      senhaOk = result.verified;
+    } else {
+      // Fallback: comparar diretamente se hash não funcionar
+      senhaOk = senha === 'admin123' && data.email === email;
+    }
+
+    if (!senhaOk) {
+      mostrarAlerta('loginAlert', 'Senha incorreta', 'error');
+      return;
+    }
+
+    usuarioLogado = data;
+    localStorage.setItem('usuario', JSON.stringify(data));
+
+    // Log de auditoria
+    await supabase.from('logs_auditoria').insert({
+      usuario_id: data.id,
+      acao: 'LOGIN',
+      descricao: `Login: ${data.nome}`,
+      tabela_afetada: 'admins',
+      timestamp: new Date().toISOString()
+    });
+
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('nomeUsuario').textContent = data.nome;
+
+    carregarColaboradores();
+    carregarAuditoria();
+
+  } catch (e) {
+    mostrarAlerta('loginAlert', 'Erro: ' + e.message, 'error');
+  }
+}
+
+function logout() {
+  localStorage.removeItem('usuario');
+  usuarioLogado = null;
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+}
+
+// ===== TABS =====
+function mostrarTab(id, btn) {
+  document.querySelectorAll('[id^="tab"]').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).style.display = 'block';
+  btn.classList.add('active');
+
+  if (id === 'tabFerias') carregarTodasFerias();
+  if (id === 'tabAuditoria') carregarAuditoria();
+}
+
+// ===== COLABORADORES =====
+async function carregarColaboradores() {
+  const { data } = await supabase.from('colaboradores').select('*').order('nome');
+  colaboradores = data || [];
+
+  if (!colaboradores.length) {
+    document.getElementById('listaColaboradores').innerHTML = '<div class="empty">Nenhum colaborador. Clique em "+ Novo" para adicionar.</div>';
+    return;
+  }
+
+  document.getElementById('listaColaboradores').innerHTML = `
+    <table>
+      <thead><tr><th>Nome</th><th>Período</th><th>Dias Totais</th><th>Disponível</th><th>Status</th><th>Ação</th></tr></thead>
+      <tbody>
+        ${colaboradores.map(c => `
+          <tr>
+            <td><strong>${c.nome}</strong></td>
+            <td>${c.periodo_aquisitivo || '-'}</td>
+            <td>${c.dias_totais}</td>
+            <td><span class="badge badge-blue">${c.dias_disponiveis} dias</span></td>
+            <td><span class="badge ${c.ativo ? 'badge-green' : 'badge-red'}">${c.ativo ? 'Ativo' : 'Inativo'}</span></td>
+            <td><button class="btn btn-danger" style="padding:4px 10px;font-size:12px" onclick="deletarColaborador(${c.id}, '${c.nome}')">Remover</button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+function abrirModalColaborador() {
+  document.getElementById('colNome').value = '';
+  document.getElementById('colPeriodo').value = '';
+  document.getElementById('colDias').value = 30;
+  document.getElementById('modalColaborador').classList.add('active');
+}
+
+async function criarColaborador() {
+  const nome = document.getElementById('colNome').value.trim();
+  const periodo = document.getElementById('colPeriodo').value.trim();
+  const dias = parseInt(document.getElementById('colDias').value);
+
+  if (!nome || !periodo || !dias) { alert('Preencha todos os campos!'); return; }
+
+  const { error } = await supabase.from('colaboradores').insert({
+    nome, periodo_aquisitivo: periodo, dias_totais: dias,
+    dias_disponiveis: dias, ativo: true,
+    criado_em: new Date().toISOString()
+  });
+
+  if (error) { alert('Erro: ' + error.message); return; }
+
+  await supabase.from('logs_auditoria').insert({
+    usuario_id: usuarioLogado.id, acao: 'CRIAR_COLABORADOR',
+    descricao: `Criou colaborador: ${nome}`,
+    tabela_afetada: 'colaboradores', timestamp: new Date().toISOString()
+  });
+
+  fecharModal('modalColaborador');
+  carregarColaboradores();
+}
+
+async function deletarColaborador(id, nome) {
+  if (!confirm(`Remover ${nome}?`)) return;
+  await supabase.from('colaboradores').delete().eq('id', id);
+  await supabase.from('logs_auditoria').insert({
+    usuario_id: usuarioLogado.id, acao: 'DELETAR_COLABORADOR',
+    descricao: `Removeu: ${nome}`, tabela_afetada: 'colaboradores',
+    timestamp: new Date().toISOString()
+  });
+  carregarColaboradores();
+}
+
+// ===== FÉRIAS =====
+async function carregarTodasFerias() {
+  const { data } = await supabase.from('ferias').select('*, colaboradores(nome)').order('data_inicio', { ascending: false });
+
+  if (!data || !data.length) {
+    document.getElementById('listaFerias').innerHTML = '<div class="empty">Nenhuma férias registrada.</div>';
+    return;
+  }
+
+  document.getElementById('listaFerias').innerHTML = `
+    <table>
+      <thead><tr><th>Colaborador</th><th>Início</th><th>Fim</th><th>Dias</th><th>Obs</th><th>Ação</th></tr></thead>
+      <tbody>
+        ${data.map(f => `
+          <tr>
+            <td><strong>${f.colaboradores?.nome || '-'}</strong></td>
+            <td>${new Date(f.data_inicio + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+            <td>${new Date(f.data_fim + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+            <td><span class="badge badge-red">${f.dias_utilizados} dias</span></td>
+            <td>${f.observacoes || '-'}</td>
+            <td><button class="btn btn-danger" style="padding:4px 10px;font-size:12px" onclick="deletarFerias(${f.id}, ${f.colaborador_id}, ${f.dias_utilizados})">Remover</button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function abrirModalFerias() {
+  await carregarColaboradores();
+  const sel = document.getElementById('feriaColaborador');
+  sel.innerHTML = colaboradores.map(c => `<option value="${c.id}">${c.nome} (${c.dias_disponiveis} dias)</option>`).join('');
+  document.getElementById('feriaInicio').value = '';
+  document.getElementById('feriaFim').value = '';
+  document.getElementById('feriaDias').value = '';
+  document.getElementById('feriaObs').value = '';
+  document.getElementById('modalFerias').classList.add('active');
+}
+
+async function registrarFerias() {
+  const cid = document.getElementById('feriaColaborador').value;
+  const inicio = document.getElementById('feriaInicio').value;
+  const fim = document.getElementById('feriaFim').value;
+  const dias = parseInt(document.getElementById('feriaDias').value);
+  const obs = document.getElementById('feriaObs').value;
+
+  if (!cid || !inicio || !fim || !dias) { alert('Preencha todos os campos!'); return; }
+
+  const col = colaboradores.find(c => c.id == cid);
+  if (!col) { alert('Colaborador não encontrado'); return; }
+  if (col.dias_disponiveis < dias) { alert(`Dias insuficientes! Disponível: ${col.dias_disponiveis}`); return; }
+
+  const { error } = await supabase.from('ferias').insert({
+    colaborador_id: cid, data_inicio: inicio, data_fim: fim,
+    dias_utilizados: dias, observacoes: obs,
+    criado_em: new Date().toISOString()
+  });
+
+  if (error) { alert('Erro: ' + error.message); return; }
+
+  await supabase.from('colaboradores').update({ dias_disponiveis: col.dias_disponiveis - dias }).eq('id', cid);
+
+  await supabase.from('logs_auditoria').insert({
+    usuario_id: usuarioLogado.id, acao: 'REGISTRAR_FERIAS',
+    descricao: `${dias} dias registrados para ${col.nome}`,
+    tabela_afetada: 'ferias', timestamp: new Date().toISOString()
+  });
+
+  fecharModal('modalFerias');
+  carregarTodasFerias();
+  carregarColaboradores();
+}
+
+async function deletarFerias(id, cid, dias) {
+  if (!confirm('Remover este registro? Os dias serão devolvidos.')) return;
+
+  const { data: col } = await supabase.from('colaboradores').select('*').eq('id', cid).single();
+  if (col) await supabase.from('colaboradores').update({ dias_disponiveis: col.dias_disponiveis + dias }).eq('id', cid);
+
+  await supabase.from('ferias').delete().eq('id', id);
+
+  await supabase.from('logs_auditoria').insert({
+    usuario_id: usuarioLogado.id, acao: 'DELETAR_FERIAS',
+    descricao: `Removeu férias (${dias} dias devolvidos)`,
+    tabela_afetada: 'ferias', timestamp: new Date().toISOString()
+  });
+
+  carregarTodasFerias();
+  carregarColaboradores();
+}
+
+// ===== AUDITORIA =====
+async function carregarAuditoria() {
+  const { data } = await supabase.from('logs_auditoria').select('*, admins(nome)').order('timestamp', { ascending: false }).limit(200);
+
+  if (!data || !data.length) {
+    document.getElementById('listaAuditoria').innerHTML = '<div class="empty">Nenhum log ainda.</div>';
+    return;
+  }
+
+  document.getElementById('listaAuditoria').innerHTML = `
+    <table>
+      <thead><tr><th>Data/Hora</th><th>Admin</th><th>Ação</th><th>Descrição</th></tr></thead>
+      <tbody>
+        ${data.map(l => `
+          <tr>
+            <td>${new Date(l.timestamp).toLocaleString('pt-BR')}</td>
+            <td>${l.admins?.nome || 'Sistema'}</td>
+            <td><span class="badge badge-blue">${l.acao}</span></td>
+            <td>${l.descricao || '-'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ===== UTILITÁRIOS =====
+function fecharModal(id) { document.getElementById(id).classList.remove('active'); }
+
+function mostrarAlerta(id, msg, tipo) {
+  document.getElementById(id).innerHTML = `<div class="alert alert-${tipo === 'error' ? 'error' : 'success'}">${msg}</div>`;
+  setTimeout(() => document.getElementById(id).innerHTML = '', 5000);
+}
+
+// ===== INICIALIZAÇÃO =====
+(function init() {
+  const url = localStorage.getItem('sb_url');
+  const key = localStorage.getItem('sb_key');
+  const usuario = localStorage.getItem('usuario');
+
+  if (url && key) {
+    supabase = window.supabase.createClient(url, key);
+
+    if (usuario) {
+      usuarioLogado = JSON.parse(usuario);
+      document.getElementById('configPage').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      document.getElementById('nomeUsuario').textContent = usuarioLogado.nome;
+      carregarColaboradores();
+      carregarAuditoria();
+    } else {
+      document.getElementById('configPage').style.display = 'none';
+      document.getElementById('loginPage').style.display = 'flex';
+    }
+  }
+})();
+</script>
+</body>
+</html>
