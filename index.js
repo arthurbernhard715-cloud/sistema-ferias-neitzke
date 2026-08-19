@@ -10,29 +10,37 @@ const HTML = `<!DOCTYPE html>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; background: #f5f5f5; }
+    body { font-family: Montserrat, Inter, sans-serif; background: #f0f2f5; color: #333; }
     .login { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #1A3C8F, #0f2557); }
-    .login-card { background: white; padding: 40px; border-radius: 8px; width: 90%; max-width: 400px; }
-    .login-card h1 { color: #1A3C8F; margin-bottom: 30px; }
-    input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; }
-    button { width: 100%; padding: 10px; background: #1A3C8F; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .login-card { background: white; padding: 40px; border-radius: 16px; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+    .login-card h1 { color: #1A3C8F; margin-bottom: 6px; font-size: 28px; }
+    .login-card p { color: #6C757D; font-size: 13px; margin-bottom: 24px; }
+    input { width: 100%; padding: 10px 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+    input:focus { outline: none; border-color: #1A3C8F; box-shadow: 0 0 0 3px rgba(26,60,143,0.1); }
+    button { width: 100%; padding: 10px; background: #1A3C8F; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
     .dashboard { display: none; }
-    .topbar { background: #1A3C8F; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
-    .main { max-width: 1200px; margin: 0 auto; padding: 20px; }
-    .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; }
-    .tab { padding: 10px 20px; background: none; border: none; cursor: pointer; color: #666; font-weight: bold; }
+    .topbar { background: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .topbar h1 { color: #1A3C8F; font-size: 20px; }
+    .main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid #eee; overflow-x: auto; }
+    .tab { padding: 12px 20px; background: none; border: none; cursor: pointer; color: #6C757D; font-weight: 600; font-size: 14px; white-space: nowrap; }
     .tab.active { color: #1A3C8F; border-bottom: 3px solid #1A3C8F; }
-    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
     .modal.show { display: flex; justify-content: center; align-items: center; }
-    .modal-content { background: white; padding: 30px; border-radius: 8px; width: 90%; max-width: 500px; }
+    .modal-content { background: white; padding: 32px; border-radius: 12px; width: 90%; max-width: 480px; }
     .modal-close { position: absolute; top: 10px; right: 20px; font-size: 24px; cursor: pointer; }
-    table { width: 100%; border-collapse: collapse; }
-    th { background: #f0f0f0; padding: 10px; text-align: left; }
-    td { padding: 10px; border-bottom: 1px solid #eee; }
-    .btn { padding: 8px 15px; background: #2D9D6E; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #F8F9FA; padding: 10px; text-align: left; font-weight: 600; color: #1A3C8F; }
+    td { padding: 10px; border-bottom: 1px solid #f0f0f0; }
+    .btn { padding: 6px 12px; background: #D92B2B; color: white; border: none; border-radius: 6px; cursor: pointer; margin: 3px; font-size: 12px; font-weight: 600; }
+    .btn:hover { background: #a01f1f; }
     .btn-danger { background: #D92B2B; }
-    .btn-primary { background: #1A3C8F; width: 100%; padding: 10px; }
+    .btn-primary { background: #1A3C8F; width: 100%; padding: 10px; margin: 0; border-radius: 8px; }
+    .btn-primary:hover { background: #0f2557; }
+    h2 { color: #1A3C8F; font-size: 17px; margin-bottom: 15px; }
+    select { width: 100%; padding: 10px 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+    textarea { width: 100%; padding: 10px 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; font-family: inherit; }
   <\/style>
 </head>
 <body>
