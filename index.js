@@ -76,6 +76,7 @@ const HTML = `<!DOCTYPE html>
     <div class="tabs">
       <button class="tab active" onclick="mostrarTab('colabs', this)">👥 Colaboradores</button>
       <button class="tab" onclick="mostrarTab('ferias', this)">🏖️ Férias</button>
+      <button class="tab" onclick="mostrarTab('relatorios', this)">📊 Relatórios</button>
       <button class="tab" onclick="mostrarTab('admins', this)">🔑 Admins</button>
       <button class="tab" onclick="mostrarTab('auditoria', this)">📋 Auditoria</button>
     </div>
@@ -90,6 +91,16 @@ const HTML = `<!DOCTYPE html>
       <h2>Registrar Férias</h2>
       <button class="btn btn-success" onclick="abrirModal('newFeria')">+ Registrar</button>
       <div id="listaFerias" style="margin-top: 20px;"></div>
+    </div>
+
+    <div id="relatorios-tab" class="card" style="display:none;">
+      <h2>Gerar Relatório</h2>
+      <div style="margin-bottom: 20px;">
+        <button class="btn btn-success" onclick="selecionarTodos()">✓ Selecionar Todos</button>
+        <button class="btn" onclick="limparSelecao()">✗ Limpar Seleção</button>
+        <button class="btn btn-success" style="margin-left: 20px;" onclick="gerarRelatorio()">📊 Gerar Relatório</button>
+      </div>
+      <div id="listaRelatorios" style="margin-top: 20px;"></div>
     </div>
 
     <div id="admins-tab" class="card" style="display:none;">
@@ -409,12 +420,89 @@ function fecharModal(tipo) {
   if (tipo === 'historico') document.getElementById('historicoModal').style.display = 'none';
 }
 
+async function carregarRelatorios() {
+  let html = '';
+  let totalDias = 0;
+  
+  colabs.forEach(c => {
+    html += '<div style="display: flex; gap: 10px; padding: 10px; border-bottom: 1px solid #eee; align-items: center;">';
+    html += '<input type="checkbox" class="colab-check" value="' + c.id + '" style="width: 18px; height: 18px; cursor: pointer;">';
+    html += '<span style="flex: 1;">' + c.nome + ' (' + c.dias_disponiveis + ' dias disponíveis)</span>';
+    html += '</div>';
+  });
+  
+  document.getElementById('listaRelatorios').innerHTML = html || '<p style="text-align: center; color: var(--gray);">Nenhum colaborador</p>';
+}
+
+function selecionarTodos() {
+  document.querySelectorAll('.colab-check').forEach(check => check.checked = true);
+}
+
+function limparSelecao() {
+  document.querySelectorAll('.colab-check').forEach(check => check.checked = false);
+}
+
+async function gerarRelatorio() {
+  const selecionados = Array.from(document.querySelectorAll('.colab-check:checked')).map(c => parseInt(c.value));
+  
+  if (selecionados.length === 0) {
+    alert('Selecione pelo menos um colaborador!');
+    return;
+  }
+  
+  const colab_selecionados = colabs.filter(c => selecionados.includes(c.id));
+  let htmlContent = '<h1 style="color: #1A3C8F; text-align: center; margin-bottom: 30px;">📊 Relatório de Férias</h1>';
+  htmlContent += '<p style="text-align: center; color: #666; margin-bottom: 30px;">Lojas Neitzke - ' + new Date().toLocaleDateString('pt-BR') + '</p>';
+  
+  let totalGeralDias = 0;
+  let totalColaboradores = 0;
+  
+  for (let c of colab_selecionados) {
+    const { data: ferias } = await sb.from('ferias').select('*').eq('colaborador_id', c.id).order('data_inicio', { ascending: false });
+    const diasUsados = ferias ? ferias.reduce((sum, f) => sum + f.dias_utilizados, 0) : 0;
+    
+    htmlContent += '<div style="page-break-inside: avoid; margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">';
+    htmlContent += '<h2 style="color: #1A3C8F; margin-bottom: 10px; font-size: 16px;">' + c.nome + '</h2>';
+    htmlContent += '<p style="font-size: 12px; color: #666; margin-bottom: 15px;">';
+    htmlContent += 'Período: ' + (c.periodo_aquisitivo || '-') + ' | Dias Totais: ' + c.dias_totais + ' | Dias Disponíveis: ' + c.dias_disponiveis;
+    htmlContent += '</p>';
+    
+    if (ferias && ferias.length) {
+      htmlContent += '<table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px;">';
+      htmlContent += '<tr style="background: #1A3C8F; color: white;"><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Início</th><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Fim</th><th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Dias</th></tr>';
+      ferias.forEach(f => {
+        htmlContent += '<tr><td style="padding: 8px; border: 1px solid #ddd;">' + f.data_inicio + '</td><td style="padding: 8px; border: 1px solid #ddd;">' + f.data_fim + '</td><td style="padding: 8px; text-align: center; border: 1px solid #ddd;">' + f.dias_utilizados + '</td></tr>';
+      });
+      htmlContent += '</table>';
+    } else {
+      htmlContent += '<p style="font-size: 12px; color: var(--gray); text-align: center;">Nenhuma féria registrada</p>';
+    }
+    
+    htmlContent += '<p style="font-weight: 600; color: #D92B2B; font-size: 13px;">Dias Utilizados: ' + diasUsados + '</p>';
+    htmlContent += '</div>';
+    
+    totalGeralDias += diasUsados;
+    totalColaboradores++;
+  }
+  
+  htmlContent += '<div style="background: #1A3C8F; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-top: 30px;">';
+  htmlContent += '<h2 style="font-size: 16px; margin-bottom: 10px;">TOTALIZAÇÕES</h2>';
+  htmlContent += '<p style="font-size: 14px; margin: 5px 0;">Colaboradores: <strong>' + totalColaboradores + '</strong></p>';
+  htmlContent += '<p style="font-size: 14px; margin: 5px 0;">Dias Utilizados: <strong>' + totalGeralDias + '</strong></p>';
+  htmlContent += '<p style="font-size: 12px; margin-top: 15px; opacity: 0.9;">Relatório gerado em ' + new Date().toLocaleString('pt-BR') + '</p>';
+  htmlContent += '</div>';
+  
+  const opt = { margin: 10, filename: 'Relatorio_Ferias_' + new Date().toISOString().split('T')[0] + '.pdf', html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' } };
+  html2pdf().set(opt).from(htmlContent).save();
+}
+
 function mostrarTab(id, btn) {
   document.querySelectorAll('[id$="-tab"]').forEach(t => t.style.display = 'none');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById(id + '-tab').style.display = 'block';
   btn.classList.add('active');
   if (id === 'ferias') carregarFerias();
+  if (id === 'relatorios') carregarRelatorios();
   if (id === 'admins') carregarAdmins();
   if (id === 'auditoria') carregarAuditoria();
 }
