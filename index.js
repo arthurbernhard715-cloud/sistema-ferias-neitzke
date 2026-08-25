@@ -212,7 +212,7 @@ async function carregarColabs() {
   colabs = data || [];
   let html = '<table><tr><th>Nome</th><th>Período</th><th>Dias</th><th>Disponível</th><th>Ação</th></tr>';
   colabs.forEach(c => {
-    html += '<tr><td style="cursor: pointer; color: var(--primary); font-weight: 600; text-decoration: underline;" onclick="abrirHistorico(' + c.id + ', \'' + c.nome.replace(/'/g, "\\'") + '\')">' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td>' + c.dias_disponiveis + '</td>';
+    html += '<tr><td style="cursor: pointer; color: var(--primary); font-weight: 600; text-decoration: underline;" onclick="abrirHistorico(' + c.id + ')">' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td>' + c.dias_disponiveis + '</td>';
     html += '<td><button class="btn btn-success" onclick="editarColab(' + c.id + ')">Editar</button> <button class="btn" onclick="deletarColab(' + c.id + ')">Deletar</button></td></tr>';
   });
   html += '</table>';
@@ -361,7 +361,7 @@ async function criarAdmin() {
   const senhaTemp = Math.random().toString(36).slice(-8);
   await sb.from('admin_users').insert({ nome, email, senha_hash: senhaTemp, is_admin: isAdmin, primeira_vez: true, criado_em: new Date().toISOString() });
   await registrarLog('CRIAR_USUARIO', 'Novo usuário: ' + email + ' - Senha: ' + senhaTemp);
-  alert('Email: ' + email + '\nSenha: ' + senhaTemp);
+  alert('Email: ' + email + '  |  Senha: ' + senhaTemp);
   fecharModal('newAdmin');
   carregarAdmins();
 }
@@ -373,8 +373,10 @@ async function deletarAdmin(id) {
   carregarAdmins();
 }
 
-async function abrirHistorico(colabId, colabNome) {
-  document.getElementById('historicoTitulo').textContent = 'Férias de ' + colabNome;
+async function abrirHistorico(colabId) {
+  const c = colabs.find(x => x.id === colabId);
+  if (!c) return;
+  document.getElementById('historicoTitulo').textContent = 'Férias de ' + c.nome;
   const { data } = await sb.from('ferias').select('*').eq('colaborador_id', colabId).order('data_inicio', { ascending: false });
   let html = '';
   if (data && data.length) {
