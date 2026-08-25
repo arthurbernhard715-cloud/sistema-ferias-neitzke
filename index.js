@@ -71,6 +71,7 @@ const HTML = `<!DOCTYPE html>
     <div class="tabs">
       <button class="tab active" onclick="mostrarTab('colabs', this)">👥 Colaboradores</button>
       <button class="tab" onclick="mostrarTab('ferias', this)">🏖️ Férias</button>
+      <button class="tab" onclick="mostrarTab('admins', this)">🔑 Admins</button>
       <button class="tab" onclick="mostrarTab('auditoria', this)">📋 Auditoria</button>
     </div>
 
@@ -89,6 +90,12 @@ const HTML = `<!DOCTYPE html>
     <div id="auditoria-tab" class="card" style="display:none;">
       <h2>Log de Auditoria</h2>
       <div id="listaAuditoria" style="margin-top: 20px;"></div>
+    </div>
+
+    <div id="admins-tab" class="card" style="display:none;">
+      <h2>Usuários do Sistema</h2>
+      <button class="btn btn-success" onclick="abrirModal('newAdmin')">+ Novo Usuário</button>
+      <div id="listaAdmins" style="margin-top: 20px;"></div>
     </div>
   </div>
 </div>
@@ -115,7 +122,38 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
-<div class="modal" id="newFeriaModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
+<div class="modal" id="newAdminModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
+  <div class="card" style="width: 90%; max-width: 480px;">
+    <h2>Novo Usuário</h2>
+    <div class="form-group">
+      <label>Nome</label>
+      <input type="text" id="adminNome" placeholder="Nome">
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="adminEmail" placeholder="email@example.com">
+    </div>
+    <div class="form-group">
+      <label>Tipo</label>
+      <select id="adminTipo" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+        <option value="false">Usuário Normal</option>
+        <option value="true">Admin</option>
+      </select>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <button class="btn" onclick="fecharModal('newAdmin')">Cancelar</button>
+      <button class="btn btn-success" onclick="criarAdmin()">Criar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="historicoModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
+  <div class="card" style="width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto;">
+    <h2 id="historicoTitulo">Histórico de Férias</h2>
+    <div id="historicoConteudo"></div>
+    <button class="btn" onclick="fecharModal('historico')" style="margin-top: 20px;">Fechar</button>
+  </div>
+</div>
   <div class="card" style="width: 90%; max-width: 480px;">
     <h2>Registrar Férias</h2>
     <div class="form-group">
@@ -174,7 +212,7 @@ async function carregarColabs() {
   colabs = data || [];
   let html = '<table><tr><th>Nome</th><th>Período</th><th>Dias</th><th>Disponível</th><th>Ação</th></tr>';
   colabs.forEach(c => {
-    html += '<tr><td>' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td>' + c.dias_disponiveis + '</td>';
+    html += '<tr><td style="cursor: pointer; color: var(--primary); font-weight: 600; text-decoration: underline;" onclick="abrirHistorico(' + c.id + ', \'' + c.nome.replace(/'/g, "\\'") + '\')">' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td>' + c.dias_disponiveis + '</td>';
     html += '<td><button class="btn btn-success" onclick="editarColab(' + c.id + ')">Editar</button> <button class="btn" onclick="deletarColab(' + c.id + ')">Deletar</button></td></tr>';
   });
   html += '</table>';
@@ -284,14 +322,74 @@ function abrirModal(tipo) {
     colabs.forEach(c => { sel.innerHTML += '<option value="' + c.id + '">' + c.nome + '</option>'; });
     document.getElementById('newFeriaModal').style.display = 'flex';
   }
+  if (tipo === 'newAdmin') {
+    document.getElementById('adminNome').value = '';
+    document.getElementById('adminEmail').value = '';
+    document.getElementById('adminTipo').value = 'false';
+    document.getElementById('newAdminModal').style.display = 'flex';
+  }
 }
 
 function fecharModal(tipo) {
   if (tipo === 'newColab') document.getElementById('newColabModal').style.display = 'none';
   if (tipo === 'newFeria') document.getElementById('newFeriaModal').style.display = 'none';
-  document.getElementById('col Nome').value = '';
+  if (tipo === 'newAdmin') document.getElementById('newAdminModal').style.display = 'none';
+  if (tipo === 'historico') document.getElementById('historicoModal').style.display = 'none';
+  document.getElementById('colNome').value = '';
   document.getElementById('colPeriodo').value = '';
   document.getElementById('colDias').value = 30;
+}
+
+async function carregarAdmins() {
+  const { data } = await sb.from('admin_users').select('*').order('nome');
+  let html = '<table><tr><th>Nome</th><th>Email</th><th>Tipo</th><th>Ação</th></tr>';
+  if (data && data.length) {
+    data.forEach(a => {
+      html += '<tr><td>' + a.nome + '</td><td>' + a.email + '</td><td>' + (a.is_admin ? 'Admin' : 'Usuário') + '</td>';
+      html += '<td><button class="btn" onclick="deletarAdmin(' + a.id + ')">Deletar</button></td></tr>';
+    });
+  }
+  html += '</table>';
+  document.getElementById('listaAdmins').innerHTML = html;
+}
+
+async function criarAdmin() {
+  const nome = document.getElementById('adminNome').value;
+  const email = document.getElementById('adminEmail').value;
+  const isAdmin = document.getElementById('adminTipo').value === 'true';
+  if (!nome || !email) { alert('Preencha tudo!'); return; }
+  const senhaTemp = Math.random().toString(36).slice(-8);
+  await sb.from('admin_users').insert({ nome, email, senha_hash: senhaTemp, is_admin: isAdmin, primeira_vez: true, criado_em: new Date().toISOString() });
+  await registrarLog('CRIAR_USUARIO', 'Novo usuário: ' + email + ' - Senha: ' + senhaTemp);
+  alert('Email: ' + email + '\nSenha: ' + senhaTemp);
+  fecharModal('newAdmin');
+  carregarAdmins();
+}
+
+async function deletarAdmin(id) {
+  if (!confirm('Deletar?')) return;
+  await sb.from('admin_users').delete().eq('id', id);
+  await registrarLog('DELETAR_USUARIO', 'Usuário deletado');
+  carregarAdmins();
+}
+
+async function abrirHistorico(colabId, colabNome) {
+  document.getElementById('historicoTitulo').textContent = 'Férias de ' + colabNome;
+  const { data } = await sb.from('ferias').select('*').eq('colaborador_id', colabId).order('data_inicio', { ascending: false });
+  let html = '';
+  if (data && data.length) {
+    html = '<table><tr><th>Início</th><th>Fim</th><th>Dias</th><th>Obs</th></tr>';
+    data.forEach(f => {
+      html += '<tr><td>' + f.data_inicio + '</td><td>' + f.data_fim + '</td><td>' + f.dias_utilizados + '</td><td>' + (f.observacoes || '-') + '</td></tr>';
+    });
+    html += '</table>';
+    const total = data.reduce((sum, f) => sum + f.dias_utilizados, 0);
+    html += '<p style="margin-top: 15px; color: var(--primary); font-weight: 600;">Total: ' + total + ' dias</p>';
+  } else {
+    html = '<p style="text-align: center; color: var(--gray);">Nenhuma féria registrada</p>';
+  }
+  document.getElementById('historicoConteudo').innerHTML = html;
+  document.getElementById('historicoModal').style.display = 'flex';
 }
 
 function mostrarTab(id, btn) {
@@ -300,6 +398,7 @@ function mostrarTab(id, btn) {
   document.getElementById(id + '-tab').style.display = 'block';
   btn.classList.add('active');
   if (id === 'ferias') carregarFerias();
+  if (id === 'admins') carregarAdmins();
   if (id === 'auditoria') carregarAuditoria();
 }
 
