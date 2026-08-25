@@ -154,6 +154,8 @@ const HTML = `<!DOCTYPE html>
     <button class="btn" onclick="fecharModal('historico')" style="margin-top: 20px;">Fechar</button>
   </div>
 </div>
+
+<div class="modal" id="newFeriaModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
   <div class="card" style="width: 90%; max-width: 480px;">
     <h2>Registrar Férias</h2>
     <div class="form-group">
