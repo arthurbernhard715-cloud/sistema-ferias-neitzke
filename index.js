@@ -375,11 +375,24 @@ async function registrarFeria() {
   if (!cid || !inicio || !fim || !dias) { alert('Preencha tudo!'); return; }
   const c = colabs.find(x => x.id == cid);
   if (c.dias_disponiveis < dias) { alert('Dias insuficientes!'); return; }
-  await sb.from('ferias').insert({ colaborador_id: cid, data_inicio: inicio, data_fim: fim, dias_utilizados: dias, observacoes: obs, criado_em: new Date().toISOString() });
-  await sb.from('colaboradores').update({ dias_disponiveis: c.dias_disponiveis - dias }).eq('id', cid);
-  await registrarLog('REGISTRAR_FERIA', c.nome + ': ' + dias + ' dias');
-  fecharModal('newFeria');
-  carregarColabs();
+  try {
+    const { error } = await sb.from('ferias').insert({ colaborador_id: cid, data_inicio: inicio, data_fim: fim, dias_utilizados: dias, observacoes: obs, criado_em: new Date().toISOString() });
+    if (error) throw error;
+    await sb.from('colaboradores').update({ dias_disponiveis: c.dias_disponiveis - dias }).eq('id', cid);
+    await registrarLog('REGISTRAR_FERIA', c.nome + ': ' + dias + ' dias (' + inicio + ' a ' + fim + ')');
+    alert('Férias registradas com sucesso!');
+    document.getElementById('colNome').value = '';
+    document.getElementById('colPeriodo').value = '';
+    document.getElementById('colDias').value = '30';
+    document.getElementById('feriaInicio').value = '';
+    document.getElementById('feriaFim').value = '';
+    document.getElementById('feriaDias').value = '';
+    document.getElementById('feriaObs').value = '';
+    fecharModal('newFeria');
+    carregarColabs();
+  } catch (e) {
+    alert('Erro ao registrar: ' + e.message);
+  }
 }
 
 function mostrarTab(id, btn) {
