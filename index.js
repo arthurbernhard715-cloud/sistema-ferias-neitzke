@@ -155,6 +155,16 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
+<div class="modal" id="historicoFeriaModal">
+  <div class="modal-box">
+    <h2 class="modal-title" id="historicoTitulo">Histórico de Férias</h2>
+    <div id="historicoConteudo"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModal('historico')">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="editFeriaModal">
   <div class="modal-box">
     <h2 class="modal-title">Editar Férias</h2>
@@ -252,7 +262,7 @@ async function carregarColabs() {
   colabs = data || [];
   let html = '<table><tr><th>Nome</th><th>Período</th><th>Dias</th><th>Disponível</th><th>Ações</th></tr>';
   colabs.forEach(c => {
-    html += '<tr><td>' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td>' + c.dias_disponiveis + '</td><td>';
+    html += '<tr><td style="cursor: pointer; color: var(--primary); font-weight: 600;" onclick="abrirHistoricoFeria(' + c.id + ', \'' + c.nome + '\')">' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td>' + c.dias_disponiveis + '</td><td>';
     html += '<button class="btn btn-edit" onclick="abrirEditColab(' + c.id + ')">Editar</button>';
     html += '<button class="btn" onclick="deletarColab(' + c.id + ')">Deletar</button></td></tr>';
   });
@@ -260,7 +270,26 @@ async function carregarColabs() {
   document.getElementById('listaColabs').innerHTML = html;
 }
 
-function abrirEditColab(id) {
+async function abrirHistoricoFeria(colabId, colabNome) {
+  document.getElementById('historicoTitulo').textContent = '📋 Férias de ' + colabNome;
+  const { data } = await sb.from('ferias').select('*').eq('colaborador_id', colabId).order('data_inicio', { ascending: false });
+  
+  let html = '';
+  if (data && data.length) {
+    html = '<table style="width: 100%; margin-bottom: 15px;"><tr><th>Início</th><th>Fim</th><th>Dias</th><th>Observações</th></tr>';
+    data.forEach(f => {
+      html += '<tr><td>' + f.data_inicio + '</td><td>' + f.data_fim + '</td><td>' + f.dias_utilizados + '</td><td>' + (f.observacoes || '-') + '</td></tr>';
+    });
+    html += '</table>';
+    const totalDias = data.reduce((sum, f) => sum + f.dias_utilizados, 0);
+    html += '<p style="color: var(--primary); font-weight: 600; margin-top: 15px;">Total de dias utilizados: ' + totalDias + '</p>';
+  } else {
+    html = '<p style="color: var(--gray); text-align: center;">Nenhuma féria registrada</p>';
+  }
+  
+  document.getElementById('historicoConteudo').innerHTML = html;
+  document.getElementById('historicoFeriaModal').classList.add('active');
+}
   const c = colabs.find(x => x.id === id);
   document.getElementById('editColabId').value = c.id;
   document.getElementById('editColNome').value = c.nome;
@@ -388,6 +417,7 @@ function fecharModal(tipo) {
   if (tipo === 'editColab') document.getElementById('editColabModal').classList.remove('active');
   if (tipo === 'newFeria') document.getElementById('newFeriaModal').classList.remove('active');
   if (tipo === 'editFeria') document.getElementById('editFeriaModal').classList.remove('active');
+  if (tipo === 'historico') document.getElementById('historicoFeriaModal').classList.remove('active');
   if (tipo === 'newAdmin') document.getElementById('newAdminModal').classList.remove('active');
 }
 
