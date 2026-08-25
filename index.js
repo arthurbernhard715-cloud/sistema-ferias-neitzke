@@ -96,6 +96,7 @@ const HTML = `<!DOCTYPE html>
     <div id="ferias-tab" class="card" style="display:none;">
       <h2>Registrar Férias</h2>
       <button class="btn btn-success" onclick="abrirModal('newFeria')">+ Registrar</button>
+      <div id="listaFerias" style="margin-top: 20px;"></div>
     </div>
 
     <div id="admins-tab" class="card" style="display:none;">
@@ -312,6 +313,20 @@ async function deletarAdmin(id) {
   carregarAdmins();
 }
 
+async function carregarFerias() {
+  const { data } = await sb.from('ferias').select('*, colaboradores(nome)').order('data_inicio', { ascending: false });
+  let html = '<table><tr><th>Colaborador</th><th>Início</th><th>Fim</th><th>Dias</th><th>Observações</th></tr>';
+  if (data && data.length) {
+    data.forEach(f => {
+      html += '<tr><td>' + f.colaboradores.nome + '</td><td>' + f.data_inicio + '</td><td>' + f.data_fim + '</td><td>' + f.dias_utilizados + '</td><td>' + (f.observacoes || '-') + '</td></tr>';
+    });
+  } else {
+    html += '<tr><td colspan="5" style="text-align:center; color: var(--gray);">Nenhuma féria registrada</td></tr>';
+  }
+  html += '</table>';
+  document.getElementById('listaFerias').innerHTML = html;
+}
+
 async function carregarAuditoria() {
   const { data } = await sb.from('logs_auditoria').select('*').order('timestamp', { ascending: false }).limit(100);
   let html = '<table><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Descrição</th></tr>';
@@ -381,15 +396,13 @@ async function registrarFeria() {
     await sb.from('colaboradores').update({ dias_disponiveis: c.dias_disponiveis - dias }).eq('id', cid);
     await registrarLog('REGISTRAR_FERIA', c.nome + ': ' + dias + ' dias (' + inicio + ' a ' + fim + ')');
     alert('Férias registradas com sucesso!');
-    document.getElementById('colNome').value = '';
-    document.getElementById('colPeriodo').value = '';
-    document.getElementById('colDias').value = '30';
     document.getElementById('feriaInicio').value = '';
     document.getElementById('feriaFim').value = '';
     document.getElementById('feriaDias').value = '';
     document.getElementById('feriaObs').value = '';
     fecharModal('newFeria');
     carregarColabs();
+    carregarFerias();
   } catch (e) {
     alert('Erro ao registrar: ' + e.message);
   }
@@ -400,6 +413,7 @@ function mostrarTab(id, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById(id + '-tab').style.display = 'block';
   btn.classList.add('active');
+  if (id === 'ferias') carregarFerias();
   if (id === 'auditoria') carregarAuditoria();
 }
 
