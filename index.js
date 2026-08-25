@@ -189,7 +189,39 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
-<div class="modal" id="historicoModal">
+<div class="modal" id="novoPeriodoModal">
+  <div class="modal-box">
+    <h2 class="modal-title">Novo Período Aquisitivo</h2>
+    <div class="form-group">
+      <label>Colaborador</label>
+      <input type="text" id="periodoColab" readonly style="background: #f5f5f5; cursor: not-allowed;">
+    </div>
+    <div class="form-group">
+      <label>Período Atual</label>
+      <input type="text" id="periodoAtual" readonly style="background: #f5f5f5; cursor: not-allowed;">
+    </div>
+    <div class="form-group">
+      <label>Novo Período - Início</label>
+      <input type="date" id="novoPeriodoInicio">
+    </div>
+    <div class="form-group">
+      <label>Novo Período - Fim</label>
+      <input type="date" id="novoperiodoFim">
+    </div>
+    <div class="form-group">
+      <label>Dias do Novo Período</label>
+      <input type="number" id="novoperiodoDias" value="30">
+    </div>
+    <div style="background: #f0f8ff; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+      <p style="font-size: 12px; color: #333; margin: 0;"><strong>Saldo Atual:</strong> <span id="saldoAtual">0</span> dias</p>
+      <p style="font-size: 12px; color: #333; margin: 5px 0;"><strong>Após adicionar:</strong> <span id="saldoNovo" style="color: var(--success); font-weight: 700;">0</span> dias</p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <button class="btn" onclick="fecharModal('novoPeriodo')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmarNovoPeriodo()">Confirmar</button>
+    </div>
+  </div>
+</div>
   <div class="modal-box" style="max-width: 600px;">
     <h2 class="modal-title" id="historicoTitulo">Histórico de Férias</h2>
     <div id="historicoConteudo"></div>
@@ -205,6 +237,8 @@ let sb = null, usuario = null, colabs = [];
 
 async function init() {
   sb = window.supabase.createClient('https://boiakwhxkyposfyljiry.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvaWFrd2h4a3lwb3NmeWxqaXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUwODksImV4cCI6MjEwMTY4MTA4OX0.Kx1JID5_LuNATBeR67NeA_c0CxQKq6ggJLB6PJtJkWM');
+  document.getElementById('novoperiodoDias').addEventListener('change', atualizarPreviewSaldo);
+  document.getElementById('novoperiodoDias').addEventListener('input', atualizarPreviewSaldo);
 }
 
 async function registrarLog(acao, desc) {
@@ -241,29 +275,77 @@ async function carregarColabs() {
   document.getElementById('listaColabs').innerHTML = html;
 }
 
+let periodoEditandoId = null;
+
 async function novoPeriodo(id) {
+  periodoEditandoId = id;
   const c = colabs.find(x => x.id === id);
-  const periodo = prompt('Novo período aquisitivo (ex: 01/06/2026 a 31/05/2027):', '');
-  if (!periodo) return;
-  const dias = prompt('Dias do novo período:', '30');
-  if (!dias) return;
   
-  const diasAdicionais = parseInt(dias);
+  document.getElementById('periodoColab').value = c.nome;
+  document.getElementById('periodoAtual').value = c.periodo_aquisitivo || 'Não definido';
+  document.getElementById('novoPeriodoInicio').value = '';
+  document.getElementById('novoperiodoFim').value = '';
+  document.getElementById('novoperiodoDias').value = '30';
+  document.getElementById('saldoAtual').textContent = c.dias_disponiveis;
+  atualizarPreviewSaldo();
+  
+  document.getElementById('novoPeriodoModal').style.display = 'flex';
+}
+
+function atualizarPreviewSaldo() {
+  const c = colabs.find(x => x.id === periodoEditandoId);
+  const diasAdicionais = parseInt(document.getElementById('novoperiodoDias').value) || 0;
   const novoSaldo = c.dias_disponiveis + diasAdicionais;
+  document.getElementById('saldoAtual').textContent = c.dias_disponiveis;
+  document.getElementById('saldoNovo').textContent = novoSaldo;
+  document.getElementById('saldoNovo').style.color = novoSaldo >= 0 ? 'var(--success)' : 'var(--danger)';
+}
+
+async function confirmarNovoPeriodo() {
+  const c = colabs.find(x => x.id === periodoEditandoId);
+  const dataInicio = document.getElementById('novoPeriodoInicio').value;
+  const dataFim = document.getElementById('novoperiodoFim').value;
+  const dias = parseInt(document.getElementById('novoperiodoDias').value);
   
-  let msg = 'Novo período: ' + periodo + '\\n';
+  if (!dataInicio || !dataFim || !dias) {
+    alert('Preencha todas as datas e dias!');
+    return;
+  }
+  
+  const dtInicio = new Date(dataInicio);
+  const dtFim = new Date(dataFim);
+  const dtAtualInicio = c.periodo_aquisitivo ? new Date(c.periodo_aquisitivo.split(' a ')[0].split('/').reverse().join('-')) : null;
+  
+  if (dtFim <= dtInicio) {
+    alert('Data de fim deve ser após a data de início!');
+    return;
+  }
+  
+  if (dtAtualInicio && dtInicio < dtAtualInicio) {
+    alert('Novo período não pode começar antes do período atual!');
+    return;
+  }
+  
+  const periodoStr = dataInicio.split('-').reverse().join('/') + ' a ' + dataFim.split('-').reverse().join('/');
+  const novoSaldo = c.dias_disponiveis + dias;
+  
+  let msg = '✓ NOVO PERÍODO\\n\\n';
+  msg += 'Colaborador: ' + c.nome + '\\n';
+  msg += 'Período: ' + periodoStr + '\\n';
   msg += 'Saldo anterior: ' + c.dias_disponiveis + ' dias\\n';
-  msg += 'Adicionar: +' + diasAdicionais + ' dias\\n';
+  msg += 'Adicionar: +' + dias + ' dias\\n';
   msg += 'Novo saldo: ' + novoSaldo + ' dias\\n\\nConfirmar?';
   
   if (!confirm(msg)) return;
   
   await sb.from('colaboradores').update({ 
-    periodo_aquisitivo: periodo, 
-    dias_totais: diasAdicionais, 
+    periodo_aquisitivo: periodoStr, 
+    dias_totais: dias, 
     dias_disponiveis: novoSaldo 
-  }).eq('id', id);
-  await registrarLog('NOVO_PERIODO', c.nome + ' - Novo período: ' + periodo + ' (+' + diasAdicionais + ' dias, saldo: ' + novoSaldo + ')');
+  }).eq('id', periodoEditandoId);
+  
+  await registrarLog('NOVO_PERIODO', c.nome + ' - Novo período: ' + periodoStr + ' (+' + dias + ' dias, saldo: ' + novoSaldo + ')');
+  fecharModal('novoPeriodo');
   carregarColabs();
 }
 
@@ -456,6 +538,7 @@ function fecharModal(tipo) {
   if (tipo === 'newFeria') document.getElementById('newFeriaModal').style.display = 'none';
   if (tipo === 'newAdmin') document.getElementById('newAdminModal').style.display = 'none';
   if (tipo === 'historico') document.getElementById('historicoModal').style.display = 'none';
+  if (tipo === 'novoPeriodo') document.getElementById('novoPeriodoModal').style.display = 'none';
 }
 
 async function carregarRelatorios() {
