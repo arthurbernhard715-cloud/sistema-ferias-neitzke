@@ -259,7 +259,7 @@ async function carregarColabs() {
   colabs = data || [];
   let html = '<table><tr><th>Nome</th><th>Período</th><th>Dias</th><th>Disponível</th><th>Ações</th></tr>';
   colabs.forEach(c => {
-    html += '<tr><td class="colab-nome" onclick="abrirHistoricoFeria(' + c.id + ', ' + JSON.stringify(c.nome) + ')">' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td>' + c.dias_disponiveis + '</td><td>';
+    html += '<tr><td style="cursor: pointer; color: var(--primary); font-weight: 600;" onclick="abrirHistoricoFeria(' + c.id + ', \'' + c.nome.replace(/'/g, "\\'") + '\')">' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td>' + c.dias_disponiveis + '</td><td>';
     html += '<button class="btn btn-edit" onclick="abrirEditColab(' + c.id + ')">Editar</button>';
     html += '<button class="btn" onclick="deletarColab(' + c.id + ')">Deletar</button></td></tr>';
   });
