@@ -8,6 +8,7 @@ const HTML = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Férias - Lojas Neitzke</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root { --primary: #1A3C8F; --danger: #D92B2B; --success: #2D9D6E; --gray: #6C757D; --light: #F8F9FA; --radius: 12px; }
@@ -38,6 +39,10 @@ const HTML = `<!DOCTYPE html>
     .btn-success { background: var(--success); }
     .btn:hover { opacity: 0.9; }
     .empty { text-align: center; padding: 40px; color: var(--gray); }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal.active { display: flex; }
+    .modal-box { background: white; padding: 32px; border-radius: var(--radius); width: 90%; max-width: 480px; max-height: 85vh; overflow-y: auto; }
+    .modal-title { color: var(--primary); font-size: 18px; margin-bottom: 20px; }
   <\/style>
 </head>
 <body>
@@ -87,22 +92,22 @@ const HTML = `<!DOCTYPE html>
       <div id="listaFerias" style="margin-top: 20px;"></div>
     </div>
 
-    <div id="auditoria-tab" class="card" style="display:none;">
-      <h2>Log de Auditoria</h2>
-      <div id="listaAuditoria" style="margin-top: 20px;"></div>
-    </div>
-
     <div id="admins-tab" class="card" style="display:none;">
       <h2>Usuários do Sistema</h2>
       <button class="btn btn-success" onclick="abrirModal('newAdmin')">+ Novo Usuário</button>
       <div id="listaAdmins" style="margin-top: 20px;"></div>
     </div>
+
+    <div id="auditoria-tab" class="card" style="display:none;">
+      <h2>Log de Auditoria</h2>
+      <div id="listaAuditoria" style="margin-top: 20px;"></div>
+    </div>
   </div>
 </div>
 
-<div class="modal" id="newColabModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
-  <div class="card" style="width: 90%; max-width: 480px;">
-    <h2>Novo Colaborador</h2>
+<div class="modal" id="newColabModal">
+  <div class="modal-box">
+    <h2 class="modal-title">Novo Colaborador</h2>
     <div class="form-group">
       <label>Nome</label>
       <input type="text" id="colNome" placeholder="Nome">
@@ -122,9 +127,35 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
-<div class="modal" id="newAdminModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
-  <div class="card" style="width: 90%; max-width: 480px;">
-    <h2>Novo Usuário</h2>
+<div class="modal" id="newFeriaModal">
+  <div class="modal-box">
+    <h2 class="modal-title">Registrar Férias</h2>
+    <div class="form-group">
+      <label>Colaborador</label>
+      <select id="feriaColab" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"><option>Selecione</option></select>
+    </div>
+    <div class="form-group">
+      <label>Início</label>
+      <input type="date" id="feriaInicio" onchange="calcularDias()">
+    </div>
+    <div class="form-group">
+      <label>Fim</label>
+      <input type="date" id="feriaFim" onchange="calcularDias()">
+    </div>
+    <div class="form-group">
+      <label>Dias</label>
+      <input type="number" id="feriaDias" readonly>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <button class="btn" onclick="fecharModal('newFeria')">Cancelar</button>
+      <button class="btn btn-success" onclick="registrarFeria()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="newAdminModal">
+  <div class="modal-box">
+    <h2 class="modal-title">Novo Usuário</h2>
     <div class="form-group">
       <label>Nome</label>
       <input type="text" id="adminNome" placeholder="Nome">
@@ -147,36 +178,13 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
-<div class="modal" id="historicoModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
-  <div class="card" style="width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto;">
-    <h2 id="historicoTitulo">Histórico de Férias</h2>
+<div class="modal" id="historicoModal">
+  <div class="modal-box" style="max-width: 600px;">
+    <h2 class="modal-title" id="historicoTitulo">Histórico de Férias</h2>
     <div id="historicoConteudo"></div>
-    <button class="btn" onclick="fecharModal('historico')" style="margin-top: 20px;">Fechar</button>
-  </div>
-</div>
-
-<div class="modal" id="newFeriaModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
-  <div class="card" style="width: 90%; max-width: 480px;">
-    <h2>Registrar Férias</h2>
-    <div class="form-group">
-      <label>Colaborador</label>
-      <select id="feriaColab" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"><option>Selecione</option></select>
-    </div>
-    <div class="form-group">
-      <label>Início</label>
-      <input type="date" id="feriaInicio" onchange="calcularDias()">
-    </div>
-    <div class="form-group">
-      <label>Fim</label>
-      <input type="date" id="feriaFim" onchange="calcularDias()">
-    </div>
-    <div class="form-group">
-      <label>Dias</label>
-      <input type="number" id="feriaDias" readonly>
-    </div>
-    <div style="display: flex; gap: 10px;">
-      <button class="btn" onclick="fecharModal('newFeria')">Cancelar</button>
-      <button class="btn btn-success" onclick="registrarFeria()">Registrar</button>
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+      <button class="btn btn-success" onclick="exportarPDF()">📥 Exportar PDF</button>
+      <button class="btn" onclick="fecharModal('historico')">Fechar</button>
     </div>
   </div>
 </div>
@@ -316,32 +324,6 @@ async function carregarAuditoria() {
   document.getElementById('listaAuditoria').innerHTML = html;
 }
 
-function abrirModal(tipo) {
-  if (tipo === 'newColab') document.getElementById('newColabModal').style.display = 'flex';
-  if (tipo === 'newFeria') {
-    const sel = document.getElementById('feriaColab');
-    sel.innerHTML = '<option>Selecione</option>';
-    colabs.forEach(c => { sel.innerHTML += '<option value="' + c.id + '">' + c.nome + '</option>'; });
-    document.getElementById('newFeriaModal').style.display = 'flex';
-  }
-  if (tipo === 'newAdmin') {
-    document.getElementById('adminNome').value = '';
-    document.getElementById('adminEmail').value = '';
-    document.getElementById('adminTipo').value = 'false';
-    document.getElementById('newAdminModal').style.display = 'flex';
-  }
-}
-
-function fecharModal(tipo) {
-  if (tipo === 'newColab') document.getElementById('newColabModal').style.display = 'none';
-  if (tipo === 'newFeria') document.getElementById('newFeriaModal').style.display = 'none';
-  if (tipo === 'newAdmin') document.getElementById('newAdminModal').style.display = 'none';
-  if (tipo === 'historico') document.getElementById('historicoModal').style.display = 'none';
-  document.getElementById('colNome').value = '';
-  document.getElementById('colPeriodo').value = '';
-  document.getElementById('colDias').value = 30;
-}
-
 async function carregarAdmins() {
   const { data } = await sb.from('admin_users').select('*').order('nome');
   let html = '<table><tr><th>Nome</th><th>Email</th><th>Tipo</th><th>Ação</th></tr>';
@@ -394,6 +376,37 @@ async function abrirHistorico(colabId) {
   }
   document.getElementById('historicoConteudo').innerHTML = html;
   document.getElementById('historicoModal').style.display = 'flex';
+}
+
+function exportarPDF() {
+  const titulo = document.getElementById('historicoTitulo').textContent;
+  const conteudo = document.getElementById('historicoConteudo').innerHTML;
+  const html = '<h1>' + titulo + '</h1><p>Lojas Neitzke - Sistema de Controle de Férias</p>' + conteudo + '<p style="margin-top:40px;font-size:12px;color:#999;">Documento gerado em ' + new Date().toLocaleString('pt-BR') + '</p>';
+  const opt = { margin: 10, filename: titulo.replace(/\\s+/g, '_') + '.pdf', html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' } };
+  html2pdf().set(opt).from(html).save();
+}
+
+function abrirModal(tipo) {
+  if (tipo === 'newColab') document.getElementById('newColabModal').style.display = 'flex';
+  if (tipo === 'newFeria') {
+    const sel = document.getElementById('feriaColab');
+    sel.innerHTML = '<option>Selecione</option>';
+    colabs.forEach(c => { sel.innerHTML += '<option value="' + c.id + '">' + c.nome + '</option>'; });
+    document.getElementById('newFeriaModal').style.display = 'flex';
+  }
+  if (tipo === 'newAdmin') {
+    document.getElementById('adminNome').value = '';
+    document.getElementById('adminEmail').value = '';
+    document.getElementById('adminTipo').value = 'false';
+    document.getElementById('newAdminModal').style.display = 'flex';
+  }
+}
+
+function fecharModal(tipo) {
+  if (tipo === 'newColab') document.getElementById('newColabModal').style.display = 'none';
+  if (tipo === 'newFeria') document.getElementById('newFeriaModal').style.display = 'none';
+  if (tipo === 'newAdmin') document.getElementById('newAdminModal').style.display = 'none';
+  if (tipo === 'historico') document.getElementById('historicoModal').style.display = 'none';
 }
 
 function mostrarTab(id, btn) {
