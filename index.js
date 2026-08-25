@@ -233,11 +233,38 @@ async function carregarColabs() {
   colabs = data || [];
   let html = '<table><tr><th>Nome</th><th>Período</th><th>Dias</th><th>Disponível</th><th>Ação</th></tr>';
   colabs.forEach(c => {
-    html += '<tr><td style="cursor: pointer; color: var(--primary); font-weight: 600; text-decoration: underline;" onclick="abrirHistorico(' + c.id + ')">' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td>' + c.dias_disponiveis + '</td>';
-    html += '<td><button class="btn btn-success" onclick="editarColab(' + c.id + ')">Editar</button> <button class="btn" onclick="deletarColab(' + c.id + ')">Deletar</button></td></tr>';
+    const corSaldo = c.dias_disponiveis < 0 ? 'color: var(--danger); font-weight: 700;' : '';
+    html += '<tr><td style="cursor: pointer; color: var(--primary); font-weight: 600; text-decoration: underline;" onclick="abrirHistorico(' + c.id + ')">' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td style="' + corSaldo + '">' + c.dias_disponiveis + '</td>';
+    html += '<td><button class="btn btn-success" onclick="editarColab(' + c.id + ')">Editar</button> <button class="btn btn-success" onclick="novoPeriodo(' + c.id + ')" style="background: #6C63FF;">+Período</button> <button class="btn" onclick="deletarColab(' + c.id + ')">Deletar</button></td></tr>';
   });
   html += '</table>';
   document.getElementById('listaColabs').innerHTML = html;
+}
+
+async function novoPeriodo(id) {
+  const c = colabs.find(x => x.id === id);
+  const periodo = prompt('Novo período aquisitivo (ex: 01/06/2026 a 31/05/2027):', '');
+  if (!periodo) return;
+  const dias = prompt('Dias do novo período:', '30');
+  if (!dias) return;
+  
+  const diasAdicionais = parseInt(dias);
+  const novoSaldo = c.dias_disponiveis + diasAdicionais;
+  
+  let msg = 'Novo período: ' + periodo + '\\n';
+  msg += 'Saldo anterior: ' + c.dias_disponiveis + ' dias\\n';
+  msg += 'Adicionar: +' + diasAdicionais + ' dias\\n';
+  msg += 'Novo saldo: ' + novoSaldo + ' dias\\n\\nConfirmar?';
+  
+  if (!confirm(msg)) return;
+  
+  await sb.from('colaboradores').update({ 
+    periodo_aquisitivo: periodo, 
+    dias_totais: diasAdicionais, 
+    dias_disponiveis: novoSaldo 
+  }).eq('id', id);
+  await registrarLog('NOVO_PERIODO', c.nome + ' - Novo período: ' + periodo + ' (+' + diasAdicionais + ' dias, saldo: ' + novoSaldo + ')');
+  carregarColabs();
 }
 
 function editarColab(id) {
@@ -303,10 +330,21 @@ async function registrarFeria() {
   const dias = parseInt(document.getElementById('feriaDias').value);
   if (!cid || !inicio || !fim || !dias) { alert('Preencha tudo!'); return; }
   const c = colabs.find(x => x.id == cid);
-  if (c.dias_disponiveis < dias) { alert('Dias insuficientes!'); return; }
+  const novoSaldo = c.dias_disponiveis - dias;
+  
+  if (novoSaldo < 0) {
+    let msg = '⚠️ ATENÇÃO: Saldo ficará negativo!\\n\\n';
+    msg += 'Colaborador: ' + c.nome + '\\n';
+    msg += 'Saldo atual: ' + c.dias_disponiveis + ' dias\\n';
+    msg += 'Dias a lançar: ' + dias + ' dias\\n';
+    msg += 'Novo saldo: ' + novoSaldo + ' dias (NEGATIVO)\\n\\n';
+    msg += 'Deseja continuar assim mesmo?';
+    if (!confirm(msg)) return;
+  }
+  
   await sb.from('ferias').insert({ colaborador_id: cid, data_inicio: inicio, data_fim: fim, dias_utilizados: dias, observacoes: '', criado_em: new Date().toISOString() });
-  await sb.from('colaboradores').update({ dias_disponiveis: c.dias_disponiveis - dias }).eq('id', cid);
-  await registrarLog('REGISTRAR_FERIA', c.nome + ': ' + dias + ' dias');
+  await sb.from('colaboradores').update({ dias_disponiveis: novoSaldo }).eq('id', cid);
+  await registrarLog('REGISTRAR_FERIA', c.nome + ': ' + dias + ' dias (saldo: ' + novoSaldo + ')');
   fecharModal('newFeria');
   carregarColabs();
   carregarFerias();
@@ -425,9 +463,10 @@ async function carregarRelatorios() {
   let totalDias = 0;
   
   colabs.forEach(c => {
+    const corSaldo = c.dias_disponiveis < 0 ? 'color: var(--danger); font-weight: 700;' : '';
     html += '<div style="display: flex; gap: 10px; padding: 10px; border-bottom: 1px solid #eee; align-items: center;">';
     html += '<input type="checkbox" class="colab-check" value="' + c.id + '" style="width: 18px; height: 18px; cursor: pointer;">';
-    html += '<span style="flex: 1;">' + c.nome + ' (' + c.dias_disponiveis + ' dias disponíveis)</span>';
+    html += '<span style="flex: 1;">' + c.nome + ' (<span style="' + corSaldo + '">' + c.dias_disponiveis + ' dias disponíveis</span>)</span>';
     html += '</div>';
   });
   
@@ -464,7 +503,8 @@ async function gerarRelatorio() {
     htmlContent += '<div style="page-break-inside: avoid; margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">';
     htmlContent += '<h2 style="color: #1A3C8F; margin-bottom: 10px; font-size: 16px;">' + c.nome + '</h2>';
     htmlContent += '<p style="font-size: 12px; color: #666; margin-bottom: 15px;">';
-    htmlContent += 'Período: ' + (c.periodo_aquisitivo || '-') + ' | Dias Totais: ' + c.dias_totais + ' | Dias Disponíveis: ' + c.dias_disponiveis;
+    const corDisp = c.dias_disponiveis < 0 ? '#D92B2B' : '#666';
+    htmlContent += 'Período: ' + (c.periodo_aquisitivo || '-') + ' | Dias Totais: ' + c.dias_totais + ' | Dias Disponíveis: <strong style="color: ' + corDisp + ';">' + c.dias_disponiveis + '</strong>';
     htmlContent += '</p>';
     
     if (ferias && ferias.length) {
