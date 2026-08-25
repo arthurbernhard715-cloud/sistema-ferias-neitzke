@@ -155,6 +155,23 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
+<div class="modal" id="editFeriaModal">
+  <div class="modal-box">
+    <h2 class="modal-title">Editar Férias</h2>
+    <input type="hidden" id="editFeriaId">
+    <input type="hidden" id="editFeriaColabId">
+    <input type="text" id="editFeriaColab" placeholder="Colaborador" readonly>
+    <input type="date" id="editFeriaInicio" onchange="calcularDiasEdit()">
+    <input type="date" id="editFeriaFim" onchange="calcularDiasEdit()">
+    <input type="number" id="editFeriaDias" placeholder="Dias" readonly>
+    <textarea id="editFeriaObs" placeholder="Observações"></textarea>
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModal('editFeria')">Cancelar</button>
+      <button class="btn btn-success" onclick="salvarFeria()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="newAdminModal">
   <div class="modal-box">
     <h2 class="modal-title">Novo Usuário</h2>
@@ -315,13 +332,14 @@ async function deletarAdmin(id) {
 
 async function carregarFerias() {
   const { data } = await sb.from('ferias').select('*, colaboradores(nome)').order('data_inicio', { ascending: false });
-  let html = '<table><tr><th>Colaborador</th><th>Início</th><th>Fim</th><th>Dias</th><th>Observações</th></tr>';
+  let html = '<table><tr><th>Colaborador</th><th>Início</th><th>Fim</th><th>Dias</th><th>Observações</th><th>Ações</th></tr>';
   if (data && data.length) {
     data.forEach(f => {
-      html += '<tr><td>' + f.colaboradores.nome + '</td><td>' + f.data_inicio + '</td><td>' + f.data_fim + '</td><td>' + f.dias_utilizados + '</td><td>' + (f.observacoes || '-') + '</td></tr>';
+      html += '<tr><td>' + f.colaboradores.nome + '</td><td>' + f.data_inicio + '</td><td>' + f.data_fim + '</td><td>' + f.dias_utilizados + '</td><td>' + (f.observacoes || '-') + '</td>';
+      html += '<td><button class="btn btn-edit" onclick="abrirEditFeria(' + f.id + ')">Editar</button> <button class="btn" onclick="deletarFeria(' + f.id + ')">Deletar</button></td></tr>';
     });
   } else {
-    html += '<tr><td colspan="5" style="text-align:center; color: var(--gray);">Nenhuma féria registrada</td></tr>';
+    html += '<tr><td colspan="6" style="text-align:center; color: var(--gray);">Nenhuma féria registrada</td></tr>';
   }
   html += '</table>';
   document.getElementById('listaFerias').innerHTML = html;
@@ -369,6 +387,7 @@ function fecharModal(tipo) {
   if (tipo === 'newColab') document.getElementById('newColabModal').classList.remove('active');
   if (tipo === 'editColab') document.getElementById('editColabModal').classList.remove('active');
   if (tipo === 'newFeria') document.getElementById('newFeriaModal').classList.remove('active');
+  if (tipo === 'editFeria') document.getElementById('editFeriaModal').classList.remove('active');
   if (tipo === 'newAdmin') document.getElementById('newAdminModal').classList.remove('active');
 }
 
@@ -406,6 +425,60 @@ async function registrarFeria() {
   } catch (e) {
     alert('Erro ao registrar: ' + e.message);
   }
+}
+
+function calcularDiasEdit() {
+  const inicio = new Date(document.getElementById('editFeriaInicio').value);
+  const fim = new Date(document.getElementById('editFeriaFim').value);
+  if (inicio && fim) {
+    const dias = Math.floor((fim - inicio) / (1000 * 60 * 60 * 24)) + 1;
+    document.getElementById('editFeriaDias').value = dias;
+  }
+}
+
+async function abrirEditFeria(id) {
+  const { data } = await sb.from('ferias').select('*, colaboradores(nome)').eq('id', id).single();
+  document.getElementById('editFeriaId').value = data.id;
+  document.getElementById('editFeriaColabId').value = data.colaborador_id;
+  document.getElementById('editFeriaColab').value = data.colaboradores.nome;
+  document.getElementById('editFeriaInicio').value = data.data_inicio;
+  document.getElementById('editFeriaFim').value = data.data_fim;
+  document.getElementById('editFeriaDias').value = data.dias_utilizados;
+  document.getElementById('editFeriaObs').value = data.observacoes || '';
+  document.getElementById('editFeriaModal').classList.add('active');
+}
+
+async function salvarFeria() {
+  const id = document.getElementById('editFeriaId').value;
+  const cid = document.getElementById('editFeriaColabId').value;
+  const inicio = document.getElementById('editFeriaInicio').value;
+  const fim = document.getElementById('editFeriaFim').value;
+  const dias = parseInt(document.getElementById('editFeriaDias').value);
+  const obs = document.getElementById('editFeriaObs').value;
+  
+  const { data: feriaAntiga } = await sb.from('ferias').select('dias_utilizados').eq('id', id).single();
+  const diasDif = dias - feriaAntiga.dias_utilizados;
+  
+  await sb.from('ferias').update({ data_inicio: inicio, data_fim: fim, dias_utilizados: dias, observacoes: obs }).eq('id', id);
+  if (diasDif !== 0) {
+    const c = colabs.find(x => x.id == cid);
+    await sb.from('colaboradores').update({ dias_disponiveis: c.dias_disponiveis - diasDif }).eq('id', cid);
+  }
+  await registrarLog('EDITAR_FERIA', 'Férias atualizada: ' + dias + ' dias');
+  fecharModal('editFeria');
+  carregarColabs();
+  carregarFerias();
+}
+
+async function deletarFeria(id) {
+  if (!confirm('Deletar esta féria?')) return;
+  const { data } = await sb.from('ferias').select('*').eq('id', id).single();
+  await sb.from('ferias').delete().eq('id', id);
+  const c = colabs.find(x => x.id == data.colaborador_id);
+  await sb.from('colaboradores').update({ dias_disponiveis: c.dias_disponiveis + data.dias_utilizados }).eq('id', data.colaborador_id);
+  await registrarLog('DELETAR_FERIA', 'Férias deletada - ' + data.dias_utilizados + ' dias devolvidos');
+  carregarColabs();
+  carregarFerias();
 }
 
 function mostrarTab(id, btn) {
