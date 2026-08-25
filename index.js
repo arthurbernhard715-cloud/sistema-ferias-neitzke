@@ -25,8 +25,8 @@ const HTML = `<!DOCTYPE html>
     .topbar { background: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .topbar h1 { color: var(--primary); font-size: 20px; }
     .main { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid #eee; }
-    .tab { padding: 12px 20px; background: none; border: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--gray); }
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid #eee; overflow-x: auto; }
+    .tab { padding: 12px 20px; background: none; border: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--gray); white-space: nowrap; }
     .tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
     .card { background: white; padding: 20px; border-radius: var(--radius); box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
     .card h2 { color: var(--primary); font-size: 17px; margin-bottom: 15px; }
@@ -35,10 +35,11 @@ const HTML = `<!DOCTYPE html>
     td { padding: 10px; border-bottom: 1px solid #f0f0f0; }
     .btn { padding: 6px 12px; background: var(--danger); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; margin: 2px; }
     .btn-success { background: var(--success); }
+    .btn-edit { background: #4A90E2; }
     .btn:hover { opacity: 0.9; }
     .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
     .modal.active { display: flex; }
-    .modal-box { background: white; padding: 32px; border-radius: var(--radius); width: 90%; max-width: 480px; }
+    .modal-box { background: white; padding: 32px; border-radius: var(--radius); width: 90%; max-width: 480px; max-height: 85vh; overflow-y: auto; }
     .modal-title { color: var(--primary); font-size: 18px; margin-bottom: 20px; }
     .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
     .modal-forced { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 2000; }
@@ -83,6 +84,7 @@ const HTML = `<!DOCTYPE html>
       <button class="tab active" onclick="mostrarTab('colabs', this)">👥 Colaboradores</button>
       <button class="tab" onclick="mostrarTab('ferias', this)">🏖️ Férias</button>
       <button class="tab" onclick="mostrarTab('admins', this)">🔑 Admins</button>
+      <button class="tab" onclick="mostrarTab('auditoria', this)">📋 Auditoria</button>
     </div>
 
     <div id="colabs-tab" class="card">
@@ -101,6 +103,12 @@ const HTML = `<!DOCTYPE html>
       <button class="btn btn-success" onclick="abrirModal('newAdmin')">+ Novo</button>
       <div id="listaAdmins" style="margin-top: 20px;"></div>
     </div>
+
+    <div id="auditoria-tab" class="card" style="display:none;">
+      <h2>Log de Auditoria</h2>
+      <button class="btn btn-success" onclick="exportarAuditoria()">Exportar CSV</button>
+      <div id="listaAuditoria" style="margin-top: 20px;"></div>
+    </div>
   </div>
 </div>
 
@@ -113,6 +121,20 @@ const HTML = `<!DOCTYPE html>
     <div class="modal-footer">
       <button class="btn" onclick="fecharModal('newColab')">Cancelar</button>
       <button class="btn btn-success" onclick="criarColab()">Criar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="editColabModal">
+  <div class="modal-box">
+    <h2 class="modal-title">Editar Colaborador</h2>
+    <input type="hidden" id="editColabId">
+    <input type="text" id="editColNome" placeholder="Nome">
+    <input type="text" id="editColPeriodo" placeholder="Período">
+    <input type="number" id="editColDias" placeholder="Dias">
+    <div class="modal-footer">
+      <button class="btn" onclick="fecharModal('editColab')">Cancelar</button>
+      <button class="btn btn-success" onclick="salvarColab()">Salvar</button>
     </div>
   </div>
 </div>
@@ -155,6 +177,15 @@ async function init() {
   sb = window.supabase.createClient('https://boiakwhxkyposfyljiry.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvaWFrd2h4a3lwb3NmeWxqaXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUwODksImV4cCI6MjEwMTY4MTA4OX0.Kx1JID5_LuNATBeR67NeA_c0CxQKq6ggJLB6PJtJkWM');
 }
 
+async function registrarLog(acao, descricao) {
+  await sb.from('logs_auditoria').insert({
+    acao: acao,
+    descricao: descricao,
+    usuario_nome: usuario.nome,
+    timestamp: new Date().toISOString()
+  });
+}
+
 async function fazerLogin() {
   const email = document.getElementById('loginEmail').value;
   const senha = document.getElementById('loginSenha').value;
@@ -171,6 +202,7 @@ async function fazerLogin() {
     } else {
       carregarColabs();
       carregarAdmins();
+      carregarAuditoria();
     }
   } catch (e) {
     alert('Erro: ' + e.message);
@@ -189,6 +221,8 @@ async function confirmarNovaSenha() {
     document.getElementById('modalPrimeiraVez').classList.remove('active');
     carregarColabs();
     carregarAdmins();
+    carregarAuditoria();
+    await registrarLog('LOGIN', 'Primeiro acesso - Senha alterada');
     alert('Senha alterada!');
   } catch (e) {
     alert('Erro: ' + e.message);
@@ -198,12 +232,35 @@ async function confirmarNovaSenha() {
 async function carregarColabs() {
   const { data } = await sb.from('colaboradores').select('*').order('nome');
   colabs = data || [];
-  let html = '<table><tr><th>Nome</th><th>Período</th><th>Dias</th><th>Disponível</th><th>Ação</th></tr>';
+  let html = '<table><tr><th>Nome</th><th>Período</th><th>Dias</th><th>Disponível</th><th>Ações</th></tr>';
   colabs.forEach(c => {
-    html += '<tr><td>' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td>' + c.dias_disponiveis + '</td><td><button class="btn" onclick="deletarColab(' + c.id + ')">Deletar</button></td></tr>';
+    html += '<tr><td>' + c.nome + '</td><td>' + (c.periodo_aquisitivo || '-') + '</td><td>' + c.dias_totais + '</td><td>' + c.dias_disponiveis + '</td><td>';
+    html += '<button class="btn btn-edit" onclick="abrirEditColab(' + c.id + ')">Editar</button>';
+    html += '<button class="btn" onclick="deletarColab(' + c.id + ')">Deletar</button></td></tr>';
   });
   html += '</table>';
   document.getElementById('listaColabs').innerHTML = html;
+}
+
+function abrirEditColab(id) {
+  const c = colabs.find(x => x.id === id);
+  document.getElementById('editColabId').value = c.id;
+  document.getElementById('editColNome').value = c.nome;
+  document.getElementById('editColPeriodo').value = c.periodo_aquisitivo || '';
+  document.getElementById('editColDias').value = c.dias_totais;
+  document.getElementById('editColabModal').classList.add('active');
+}
+
+async function salvarColab() {
+  const id = document.getElementById('editColabId').value;
+  const nome = document.getElementById('editColNome').value;
+  const periodo = document.getElementById('editColPeriodo').value;
+  const dias = document.getElementById('editColDias').value;
+  if (!nome || !periodo) { alert('Preencha tudo!'); return; }
+  await sb.from('colaboradores').update({ nome, periodo_aquisitivo: periodo, dias_totais: dias }).eq('id', id);
+  await registrarLog('EDITAR_COLAB', 'Colaborador ' + nome + ' atualizado');
+  fecharModal('editColab');
+  carregarColabs();
 }
 
 async function criarColab() {
@@ -212,13 +269,16 @@ async function criarColab() {
   const dias = document.getElementById('colDias').value;
   if (!nome || !periodo) { alert('Preencha tudo!'); return; }
   await sb.from('colaboradores').insert({ nome, periodo_aquisitivo: periodo, dias_totais: dias, dias_disponiveis: dias, ativo: true, criado_em: new Date().toISOString() });
+  await registrarLog('CRIAR_COLAB', 'Novo colaborador: ' + nome);
   fecharModal('newColab');
   carregarColabs();
 }
 
 async function deletarColab(id) {
-  if (!confirm('Deletar?')) return;
+  const c = colabs.find(x => x.id === id);
+  if (!confirm('Deletar ' + c.nome + '?')) return;
   await sb.from('colaboradores').delete().eq('id', id);
+  await registrarLog('DELETAR_COLAB', 'Colaborador deletado: ' + c.nome);
   carregarColabs();
 }
 
@@ -239,6 +299,7 @@ async function criarAdmin() {
   if (!nome || !email) { alert('Preencha tudo!'); return; }
   const senhaTemp = Math.random().toString(36).slice(-8);
   await sb.from('admin_users').insert({ nome, email, senha_hash: senhaTemp, is_admin: isAdmin, primeira_vez: true, criado_em: new Date().toISOString() });
+  await registrarLog('CRIAR_USUARIO', 'Novo usuário: ' + email);
   alert('Email: ' + email + ' | Senha: ' + senhaTemp);
   fecharModal('newAdmin');
   carregarAdmins();
@@ -247,7 +308,35 @@ async function criarAdmin() {
 async function deletarAdmin(id) {
   if (!confirm('Deletar?')) return;
   await sb.from('admin_users').delete().eq('id', id);
+  await registrarLog('DELETAR_USUARIO', 'Usuário deletado');
   carregarAdmins();
+}
+
+async function carregarAuditoria() {
+  const { data } = await sb.from('logs_auditoria').select('*').order('timestamp', { ascending: false }).limit(100);
+  let html = '<table><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Descrição</th></tr>';
+  data.forEach(log => {
+    const data_fmt = new Date(log.timestamp).toLocaleString('pt-BR');
+    html += '<tr><td>' + data_fmt + '</td><td>' + log.usuario_nome + '</td><td>' + log.acao + '</td><td>' + (log.descricao || '-') + '</td></tr>';
+  });
+  html += '</table>';
+  document.getElementById('listaAuditoria').innerHTML = html;
+}
+
+function exportarAuditoria() {
+  sb.from('logs_auditoria').select('*').order('timestamp', { ascending: false }).then(({ data }) => {
+    let csv = 'Data/Hora,Usuário,Ação,Descrição\\n';
+    data.forEach(log => {
+      const data_fmt = new Date(log.timestamp).toLocaleString('pt-BR');
+      csv += '"' + data_fmt + '","' + log.usuario_nome + '","' + log.acao + '","' + (log.descricao || '') + '"\\n';
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'auditoria.csv';
+    a.click();
+  });
 }
 
 function abrirModal(tipo) {
@@ -263,6 +352,7 @@ function abrirModal(tipo) {
 
 function fecharModal(tipo) {
   if (tipo === 'newColab') document.getElementById('newColabModal').classList.remove('active');
+  if (tipo === 'editColab') document.getElementById('editColabModal').classList.remove('active');
   if (tipo === 'newFeria') document.getElementById('newFeriaModal').classList.remove('active');
   if (tipo === 'newAdmin') document.getElementById('newAdminModal').classList.remove('active');
 }
@@ -287,6 +377,7 @@ async function registrarFeria() {
   if (c.dias_disponiveis < dias) { alert('Dias insuficientes!'); return; }
   await sb.from('ferias').insert({ colaborador_id: cid, data_inicio: inicio, data_fim: fim, dias_utilizados: dias, observacoes: obs, criado_em: new Date().toISOString() });
   await sb.from('colaboradores').update({ dias_disponiveis: c.dias_disponiveis - dias }).eq('id', cid);
+  await registrarLog('REGISTRAR_FERIA', c.nome + ': ' + dias + ' dias');
   fecharModal('newFeria');
   carregarColabs();
 }
@@ -296,6 +387,7 @@ function mostrarTab(id, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById(id + '-tab').style.display = 'block';
   btn.classList.add('active');
+  if (id === 'auditoria') carregarAuditoria();
 }
 
 function logout() { location.reload(); }
