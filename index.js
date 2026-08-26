@@ -194,15 +194,16 @@ const HTML = `<!DOCTYPE html>
     }
 
     async function carregarFerias() {
-      const { data } = await sb.from('ferias').select('*, colaboradores(nome)').order('data_inicio', { ascending: false });
-      let html = '<table><tr><th>Colaborador</th><th>Início</th><th>Fim</th><th>Dias</th><th>Ação</th></tr>';
+      const { data } = await sb.from('ferias').select('*, colaboradores(nome)').order('criado_em', { ascending: false });
+      let html = '<table><tr><th>Colaborador</th><th>Início</th><th>Fim</th><th>Dias</th><th>Registrado em</th><th>Ação</th></tr>';
       if (data && data.length) {
         data.forEach(f => {
-          html += '<tr><td>' + f.colaboradores.nome + '</td><td>' + f.data_inicio + '</td><td>' + f.data_fim + '</td><td>' + f.dias_utilizados + '</td>';
+          const dataRegistro = new Date(f.criado_em).toLocaleDateString('pt-BR');
+          html += '<tr><td>' + f.colaboradores.nome + '</td><td>' + f.data_inicio + '</td><td>' + f.data_fim + '</td><td>' + f.dias_utilizados + '</td><td style="font-size: 12px; color: #999;">' + dataRegistro + '</td>';
           html += '<td><button class="btn" onclick="deletarFeria(' + f.id + ', ' + f.colaborador_id + ', ' + f.dias_utilizados + ')">Deletar</button></td></tr>';
         });
       } else {
-        html += '<tr><td colspan="5" style="text-align: center;">Nenhuma féria</td></tr>';
+        html += '<tr><td colspan="6" style="text-align: center;">Nenhuma féria</td></tr>';
       }
       html += '</table>';
       document.getElementById('listaFerias').innerHTML = html;
