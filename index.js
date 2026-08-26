@@ -207,6 +207,28 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
+<div class="modal" id="trocarSenhaModal" style="display: none;">
+  <div class="modal-box">
+    <h2 class="modal-title">🔐 Trocar Senha (Primeiro Acesso)</h2>
+    <p style="color: #666; font-size: 13px; margin-bottom: 20px;">Você está acessando pela primeira vez. Escolha uma nova senha segura.</p>
+    <div class="form-group">
+      <label>Senha Atual (Temporária)</label>
+      <input type="password" id="senhaAtual" readonly style="background: #f5f5f5;">
+    </div>
+    <div class="form-group">
+      <label>Nova Senha</label>
+      <input type="password" id="novaSenha" placeholder="••••••••">
+    </div>
+    <div class="form-group">
+      <label>Confirmar Senha</label>
+      <input type="password" id="confirmarSenha" placeholder="••••••••">
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <button class="btn btn-success" onclick="confirmarTrocaSenha()">Salvar Nova Senha</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="novoPeriodoModal">
   <div class="modal-box">
     <h2 class="modal-title">Novo Período Aquisitivo</h2>
@@ -279,8 +301,49 @@ async function fazerLogin() {
     document.getElementById('nomeUsuario').textContent = data.nome + (isAdmin ? ' (Admin)' : '');
     atualizarAbas();
     carregarColabs();
+    
+    // Se é primeira vez, obriga trocar senha
+    if (data.primeira_vez) {
+      document.getElementById('senhaAtual').value = senha;
+      document.getElementById('trocarSenhaModal').style.display = 'flex';
+    }
   } catch (e) {
     alert('Erro: ' + e.message);
+  }
+}
+
+async function confirmarTrocaSenha() {
+  const novaSenha = document.getElementById('novaSenha').value;
+  const confirmarSenha = document.getElementById('confirmarSenha').value;
+  
+  if (!novaSenha || !confirmarSenha) {
+    alert('Preencha os campos de senha!');
+    return;
+  }
+  
+  if (novaSenha !== confirmarSenha) {
+    alert('As senhas não conferem!');
+    return;
+  }
+  
+  if (novaSenha.length < 6) {
+    alert('Senha deve ter no mínimo 6 caracteres!');
+    return;
+  }
+  
+  try {
+    await sb.from('admin_users').update({ 
+      senha_hash: novaSenha, 
+      primeira_vez: false 
+    }).eq('id', usuario.id);
+    
+    await registrarLog('TROCAR_SENHA', usuario.nome + ' mudou a senha no primeiro acesso');
+    
+    document.getElementById('trocarSenhaModal').style.display = 'none';
+    alert('✅ Senha alterada com sucesso! Você já pode usar o sistema.');
+    usuario.primeira_vez = false;
+  } catch (e) {
+    alert('❌ Erro ao trocar senha: ' + e.message);
   }
 }
 
@@ -491,13 +554,33 @@ async function carregarAuditoria() {
   document.getElementById('listaAuditoria').innerHTML = html;
 }
 
+async function resetarSenhaUsuario(id) {
+  if (!confirm('Resetar senha deste usuário?')) return;
+  
+  const senhaTemp = Math.random().toString(36).slice(-8);
+  
+  try {
+    await sb.from('admin_users').update({ 
+      senha_hash: senhaTemp, 
+      primeira_vez: true 
+    }).eq('id', id);
+    
+    await registrarLog('RESETAR_SENHA', 'Senha resetada por admin');
+    
+    alert('✅ Senha resetada!\\n\\nSenha temporária: ' + senhaTemp + '\\n\\nO usuário será obrigado a trocar na próximo login.');
+    carregarAdmins();
+  } catch (e) {
+    alert('❌ Erro: ' + e.message);
+  }
+}
+
 async function carregarAdmins() {
   const { data } = await sb.from('admin_users').select('*').order('nome');
   let html = '<table><tr><th>Nome</th><th>Email</th><th>Tipo</th><th>Ação</th></tr>';
   if (data && data.length) {
     data.forEach(a => {
       html += '<tr><td>' + a.nome + '</td><td>' + a.email + '</td><td>' + (a.is_admin ? 'Admin' : 'Usuário') + '</td>';
-      html += '<td><button class="btn" onclick="deletarAdmin(' + a.id + ')">Deletar</button></td></tr>';
+      html += '<td><button class="btn btn-success" onclick="resetarSenhaUsuario(\'' + a.id + '\')" style="background: #FF9800;">🔑 Reset Senha</button> <button class="btn" onclick="deletarAdmin(\'' + a.id + '\')">Deletar</button></td></tr>';
     });
   }
   html += '</table>';
