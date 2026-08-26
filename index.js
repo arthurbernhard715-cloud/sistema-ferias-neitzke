@@ -133,11 +133,16 @@ const HTML = `<!DOCTYPE html>
 
     async function criarColab() {
       const nome = document.getElementById('colNome').value;
-      const periodo = document.getElementById('colPeriodo').value;
+      const dataInicio = document.getElementById('colPeriodoInicio').value;
+      const dataFim = document.getElementById('colPeriodoFim').value;
       const dias = document.getElementById('colDias').value;
-      if (!nome || !periodo) { alert('Preencha tudo!'); return; }
+      if (!nome || !dataInicio || !dataFim) { alert('Preencha tudo!'); return; }
+      const dtInicio = new Date(dataInicio);
+      const dtFim = new Date(dataFim);
+      if (dtFim <= dtInicio) { alert('Data de fim deve ser após a data de início!'); return; }
+      const periodo = dataInicio.split('-').reverse().join('/') + ' a ' + dataFim.split('-').reverse().join('/');
       await sb.from('colaboradores').insert({ nome, periodo_aquisitivo: periodo, dias_totais: dias, dias_disponiveis: dias, ativo: true, criado_em: new Date().toISOString() });
-      await registrarLog('CRIAR_COLAB', 'Novo colaborador: ' + nome);
+      await registrarLog('CRIAR_COLAB', 'Novo colaborador: ' + nome + ' - Período: ' + periodo);
       fecharModal('newColab');
       carregarColabs();
     }
@@ -449,7 +454,7 @@ const HTML = `<!DOCTYPE html>
 
     function abrirModal(tipo) {
       document.querySelectorAll('[id\$="Modal"]').forEach(m => m.style.display = 'none');
-      if (tipo === 'newColab') { document.getElementById('colNome').value = ''; document.getElementById('colPeriodo').value = ''; document.getElementById('colDias').value = '30'; document.getElementById('newColabModal').style.display = 'flex'; }
+      if (tipo === 'newColab') { document.getElementById('colNome').value = ''; document.getElementById('colPeriodoInicio').value = ''; document.getElementById('colPeriodoFim').value = ''; document.getElementById('colDias').value = '30'; document.getElementById('newColabModal').style.display = 'flex'; }
       if (tipo === 'newFeria') { const sel = document.getElementById('feriaColab'); sel.innerHTML = '<option>Selecione</option>'; colabs.forEach(c => { sel.innerHTML += '<option value="' + c.id + '">' + c.nome + '</option>'; }); document.getElementById('feriaInicio').value = ''; document.getElementById('feriaFim').value = ''; document.getElementById('feriaDias').value = '1'; document.getElementById('newFeriaModal').style.display = 'flex'; }
       if (tipo === 'newAdmin') { document.getElementById('adminNome').value = ''; document.getElementById('adminEmail').value = ''; document.getElementById('adminTipo').value = 'false'; document.getElementById('newAdminModal').style.display = 'flex'; }
     }
@@ -564,7 +569,8 @@ const HTML = `<!DOCTYPE html>
   <div class="modal-box">
     <h2 class="modal-title">Novo Colaborador</h2>
     <div class="form-group"><label>Nome</label><input type="text" id="colNome" placeholder="Nome"></div>
-    <div class="form-group"><label>Período</label><input type="text" id="colPeriodo" placeholder="Período"></div>
+    <div class="form-group"><label>Período Aquisitivo - Início</label><input type="date" id="colPeriodoInicio"></div>
+    <div class="form-group"><label>Período Aquisitivo - Fim</label><input type="date" id="colPeriodoFim"></div>
     <div class="form-group"><label>Dias</label><input type="number" id="colDias" value="30"></div>
     <div style="display: flex; gap: 10px;"><button class="btn" onclick="fecharModal('newColab')">Cancelar</button><button class="btn btn-success" onclick="criarColab()">Criar</button></div>
   </div>
