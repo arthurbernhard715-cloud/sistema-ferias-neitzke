@@ -89,6 +89,7 @@ const HTML = `<!DOCTYPE html>
     async function init() {
       sb = window.supabase.createClient('https://boiakwhxkyposfyljiry.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvaWFrd2h4a3lwb3NmeWxqaXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUwODksImV4cCI6MjEwMTY4MTA4OX0.Kx1JID5_LuNATBeR67NeA_c0CxQKq6ggJLB6PJtJkWM');
       document.getElementById('logoImg').src = LOGO_BASE64;
+      document.getElementById('loginLogo').src = LOGO_BASE64;
       document.getElementById('novoperiodoDias').addEventListener('change', atualizarPreviewSaldo);
       document.getElementById('novoperiodoDias').addEventListener('input', atualizarPreviewSaldo);
       restaurarSessao();
@@ -420,7 +421,6 @@ const HTML = `<!DOCTYPE html>
         totalGeralDias += diasUsados;
         totalColaboradores++;
       }
-      htmlContent += '<div style="page-break-before: always; margin-top: 40px; background: #1A3C8F; color: white; padding: 30px; border-radius: 8px; text-align: center;"><h2 style="font-size: 18px; margin-bottom: 20px;">TOTALIZAÇÕES</h2><p style="font-size: 15px; margin: 10px 0;">Colaboradores: <strong>' + totalColaboradores + '</strong></p><p style="font-size: 15px; margin: 10px 0;">Dias Utilizados: <strong>' + totalGeralDias + '</strong></p></div>';
       const opt = { margin: 15, filename: 'Relatorio_Ferias_' + new Date().toISOString().split('T')[0] + '.pdf', html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' } };
       html2pdf().set(opt).from(htmlContent).save();
     }
@@ -623,6 +623,9 @@ const HTML = `<!DOCTYPE html>
 
 <div id="loginPage">
   <div id="loginCard">
+    <div style="text-align: center; margin-bottom: 20px;">
+      <img id="loginLogo" style="height: 60px; object-fit: contain;">
+    </div>
     <h1>Férias</h1>
     <p>Lojas Neitzke</p>
     <div class="form-group">
