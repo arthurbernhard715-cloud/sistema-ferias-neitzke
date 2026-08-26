@@ -222,6 +222,8 @@ const HTML = `<!DOCTYPE html>
     </div>
   </div>
 </div>
+
+<div class="modal" id="historicoModal" style="display: none;">
   <div class="modal-box" style="max-width: 600px;">
     <h2 class="modal-title" id="historicoTitulo">Histórico de Férias</h2>
     <div id="historicoConteudo"></div>
