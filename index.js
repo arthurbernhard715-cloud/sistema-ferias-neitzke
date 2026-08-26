@@ -77,6 +77,7 @@ const HTML = `<!DOCTYPE html>
       <button class="tab active" onclick="mostrarTab('colabs', this)">👥 Colaboradores</button>
       <button class="tab" onclick="mostrarTab('ferias', this)">🏖️ Férias</button>
       <button class="tab" onclick="mostrarTab('relatorios', this)">📊 Relatórios</button>
+      <button class="tab" onclick="mostrarTab('backup', this)">💾 Backup</button>
       <button class="tab" onclick="mostrarTab('admins', this)">🔑 Admins</button>
       <button class="tab" onclick="mostrarTab('auditoria', this)">📋 Auditoria</button>
     </div>
@@ -101,6 +102,23 @@ const HTML = `<!DOCTYPE html>
         <button class="btn btn-success" style="margin-left: 20px;" onclick="gerarRelatorio()">📊 Gerar Relatório</button>
       </div>
       <div id="listaRelatorios" style="margin-top: 20px;"></div>
+    </div>
+
+    <div id="backup-tab" class="card" style="display:none;">
+      <h2>Backup & Restauração de Dados</h2>
+      <div style="display: flex; gap: 15px; margin-bottom: 30px;">
+        <button class="btn btn-success" onclick="exportarBackup()">📥 Exportar Backup</button>
+        <button class="btn btn-success" style="background: #6C63FF;" onclick="document.getElementById('uploadBackup').click()">📤 Importar Backup</button>
+        <input type="file" id="uploadBackup" style="display: none;" accept=".json" onchange="importarBackup(event)">
+      </div>
+      <div id="backupInfo" style="background: #f0f8ff; padding: 20px; border-radius: 8px; margin-top: 20px;">
+        <p style="font-size: 12px; color: #666; margin: 0;">
+          <strong>ℹ️ Informações:</strong><br>
+          • Exporta: Colaboradores, Férias, Admins, Auditoria<br>
+          • Arquivo em formato JSON<br>
+          • ⚠️ Importar substitui TODOS os dados
+        </p>
+      </div>
     </div>
 
     <div id="admins-tab" class="card" style="display:none;">
@@ -631,6 +649,104 @@ async function gerarRelatorio() {
   
   const opt = { margin: 10, filename: 'Relatorio_Ferias_' + new Date().toISOString().split('T')[0] + '.pdf', html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' } };
   html2pdf().set(opt).from(htmlContent).save();
+}
+
+async function exportarBackup() {
+  try {
+    const [colabs, ferias, admins, auditoria] = await Promise.all([
+      sb.from('colaboradores').select('*'),
+      sb.from('ferias').select('*'),
+      sb.from('admin_users').select('id, nome, email, is_admin, periodo_aquisitivo, criado_em'),
+      sb.from('logs_auditoria').select('*')
+    ]);
+    
+    const backup = {
+      timestamp: new Date().toISOString(),
+      versao: '1.0',
+      colaboradores: colabs.data || [],
+      ferias: ferias.data || [],
+      admin_users: admins.data || [],
+      logs_auditoria: auditoria.data || []
+    };
+    
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'backup_ferias_' + new Date().toISOString().split('T')[0] + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    await registrarLog('EXPORTAR_BACKUP', 'Backup exportado com ' + colabs.data.length + ' colaboradores');
+    alert('✅ Backup exportado com sucesso!');
+  } catch (e) {
+    alert('❌ Erro ao exportar: ' + e.message);
+  }
+}
+
+async function importarBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const msg = '⚠️ ATENÇÃO: Esta ação vai DELETAR e RESTAURAR todos os dados!\\n\\n';
+  const confirmMsg = msg + 'Tem certeza que deseja restaurar o backup?\\n\\n(Esta ação não pode ser desfeita)';
+  
+  if (!confirm(confirmMsg)) {
+    document.getElementById('uploadBackup').value = '';
+    return;
+  }
+  
+  try {
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    
+    if (!backup.colaboradores || !backup.ferias || !backup.admin_users) {
+      alert('❌ Arquivo de backup inválido!');
+      return;
+    }
+    
+    alert('🔄 Restaurando dados... Pode levar alguns segundos...');
+    
+    // Deletar tudo
+    await sb.from('ferias').delete().neq('id', 'null');
+    await sb.from('colaboradores').delete().neq('id', 'null');
+    await sb.from('logs_auditoria').delete().neq('id', 'null');
+    
+    // Restaurar colaboradores
+    if (backup.colaboradores.length > 0) {
+      await sb.from('colaboradores').insert(backup.colaboradores);
+    }
+    
+    // Restaurar férias
+    if (backup.ferias.length > 0) {
+      await sb.from('ferias').insert(backup.ferias);
+    }
+    
+    // Restaurar admins (cuidado com senhas)
+    if (backup.admin_users.length > 0) {
+      await sb.from('admin_users').delete().neq('id', 'null');
+      await sb.from('admin_users').insert(backup.admin_users.map(a => ({
+        id: a.id,
+        nome: a.nome,
+        email: a.email,
+        is_admin: a.is_admin,
+        periodo_aquisitivo: a.periodo_aquisitivo,
+        senha_hash: 'RESTAURADO',
+        criado_em: a.criado_em
+      })));
+    }
+    
+    await registrarLog('RESTAURAR_BACKUP', 'Backup restaurado com sucesso');
+    alert('✅ Backup restaurado com sucesso!\\n\\nOs dados foram atualizados.');
+    document.getElementById('uploadBackup').value = '';
+    location.reload();
+  } catch (e) {
+    alert('❌ Erro ao restaurar: ' + e.message);
+    document.getElementById('uploadBackup').value = '';
+  }
 }
 
 function mostrarTab(id, btn) {
