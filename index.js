@@ -13,7 +13,7 @@ const HTML = `<!DOCTYPE html>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root { --primary: #1A3C8F; --danger: #D92B2B; --success: #2D9D6E; --gray: #6C757D; --light: #F8F9FA; --radius: 12px; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
-    #loginPage { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, var(--primary), #0f2557); }
+    #loginPage { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, var(--primary), #0f2557); padding: 20px; }
     #loginCard { background: white; padding: 40px; border-radius: var(--radius); width: 100%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
     #loginCard h1 { color: var(--primary); margin-bottom: 6px; font-size: 28px; }
     #loginCard p { color: var(--gray); font-size: 13px; margin-bottom: 24px; }
@@ -24,23 +24,63 @@ const HTML = `<!DOCTYPE html>
     .btn-primary { background: var(--primary); color: white; width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
     .btn-primary:hover { background: #0f2557; }
     #dashboard { display: none; }
-    .topbar { background: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .topbar { background: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); flex-wrap: wrap; gap: 10px; }
     .topbar h1 { color: var(--primary); font-size: 20px; }
-    .main { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid #eee; }
-    .tab { padding: 12px 20px; background: none; border: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--gray); transition: all 0.2s; }
+    .topbar > div { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid #eee; overflow-x: auto; flex-wrap: nowrap; }
+    .tab { padding: 12px 16px; background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--gray); transition: all 0.2s; white-space: nowrap; }
     .tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
-    .card { background: white; border-radius: var(--radius); padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .card h2 { color: var(--primary); font-size: 17px; margin-bottom: 15px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { background: var(--light); padding: 10px; text-align: left; font-weight: 600; color: var(--primary); }
-    td { padding: 10px; border-bottom: 1px solid #f0f0f0; }
-    .btn { padding: 6px 12px; background: var(--danger); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; margin: 2px; }
+    .card { background: white; border-radius: var(--radius); padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .card h2 { color: var(--primary); font-size: 16px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { background: var(--light); padding: 8px; text-align: left; font-weight: 600; color: var(--primary); }
+    td { padding: 8px; border-bottom: 1px solid #f0f0f0; }
+    .btn { padding: 6px 10px; background: var(--danger); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; margin: 2px; }
     .btn-success { background: var(--success); }
     .btn:hover { opacity: 0.9; }
-    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-box { background: white; padding: 32px; border-radius: var(--radius); width: 90%; max-width: 480px; max-height: 85vh; overflow-y: auto; }
-    .modal-title { color: var(--primary); font-size: 18px; margin-bottom: 20px; }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
+    .modal-box { background: white; padding: 24px; border-radius: var(--radius); width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+    .modal-title { color: var(--primary); font-size: 18px; margin-bottom: 16px; }
+    
+    @media (max-width: 768px) {
+      #loginCard { padding: 24px; }
+      #loginCard h1 { font-size: 24px; }
+      .topbar { padding: 12px 16px; }
+      .topbar h1 { font-size: 18px; }
+      .topbar > div { width: 100%; }
+      .main { padding: 12px; }
+      .tabs { gap: 2px; margin-bottom: 16px; }
+      .tab { padding: 10px 12px; font-size: 12px; }
+      .card { padding: 12px; margin-bottom: 12px; }
+      .card h2 { font-size: 14px; margin-bottom: 10px; }
+      table { font-size: 11px; }
+      th, td { padding: 6px; }
+      .btn { padding: 5px 8px; font-size: 10px; }
+      .modal-box { padding: 20px; }
+      .form-group { margin-bottom: 12px; }
+      .form-group input, .form-group select { font-size: 16px; padding: 12px; }
+    }
+    
+    @media (max-width: 480px) {
+      #loginCard { padding: 20px; }
+      #loginCard h1 { font-size: 22px; }
+      .topbar { padding: 10px 12px; }
+      .topbar h1 { font-size: 16px; }
+      .topbar > div { font-size: 12px; }
+      .main { padding: 8px; }
+      .tabs { gap: 0px; margin-bottom: 12px; }
+      .tab { padding: 8px 10px; font-size: 11px; }
+      .card { padding: 10px; margin-bottom: 10px; }
+      .card h2 { font-size: 13px; margin-bottom: 8px; }
+      table { font-size: 10px; }
+      th, td { padding: 4px; }
+      .btn { padding: 4px 6px; font-size: 9px; margin: 1px; }
+      .modal-box { padding: 16px; }
+      .form-group { margin-bottom: 10px; }
+      .form-group input, .form-group select { font-size: 16px; padding: 12px; }
+      .modal-title { font-size: 16px; }
+    }
   <\/style>
   <script>
     let sb = null, usuario = null, colabs = [], isAdmin = false, periodoEditandoId = null;
