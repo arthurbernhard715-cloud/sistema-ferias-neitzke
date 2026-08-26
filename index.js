@@ -207,7 +207,7 @@ const HTML = `<!DOCTYPE html>
           const dataFim = new Date(f.data_fim).toLocaleDateString('pt-BR');
           const dataRegistro = new Date(f.criado_em).toLocaleDateString('pt-BR');
           html += '<tr><td>' + f.colaboradores.nome + '</td><td>' + dataInicio + '</td><td>' + dataFim + '</td><td>' + f.dias_utilizados + '</td><td style="font-size: 12px; color: #999;">' + dataRegistro + '</td>';
-          html += '<td><button class="btn" onclick="deletarFeria(' + f.id + ', ' + f.colaborador_id + ', ' + f.dias_utilizados + ')">Deletar</button></td></tr>';
+          html += '<td><button class="btn btn-success" onclick="abrirEditarFeria(' + f.id + ', ' + f.colaborador_id + ', \'' + f.data_inicio + '\', \'' + f.data_fim + '\', ' + f.dias_utilizados + ')" style="background: #6C63FF;">Editar</button> <button class="btn" onclick="deletarFeria(' + f.id + ', ' + f.colaborador_id + ', ' + f.dias_utilizados + ')">Deletar</button></td></tr>';
         });
       } else {
         html += '<tr><td colspan="6" style="text-align: center;">Nenhuma féria</td></tr>';
@@ -251,6 +251,53 @@ const HTML = `<!DOCTYPE html>
       await sb.from('ferias').delete().eq('id', id);
       await sb.from('colaboradores').update({ dias_disponiveis: c.dias_disponiveis + dias }).eq('id', cid);
       await registrarLog('DELETAR_FERIA', 'Férias deletada - ' + dias + ' dias devolvidos');
+      carregarColabs();
+      carregarFerias();
+    }
+
+    let feriaEditandoId = null;
+    let feriaEditandoColabId = null;
+    let feriaEditandoDiasAntigos = null;
+
+    async function abrirEditarFeria(id, colabId, dataInicio, dataFim, dias) {
+      feriaEditandoId = id;
+      feriaEditandoColabId = colabId;
+      feriaEditandoDiasAntigos = dias;
+      document.getElementById('feriaEditInicio').value = dataInicio;
+      document.getElementById('feriaEditFim').value = dataFim;
+      document.getElementById('feriaEditDias').value = dias;
+      document.getElementById('editarFeriaModal').style.display = 'flex';
+    }
+
+    function calcularDiasEdit() {
+      const inicio = new Date(document.getElementById('feriaEditInicio').value);
+      const fim = new Date(document.getElementById('feriaEditFim').value);
+      if (inicio && fim) {
+        const dias = Math.floor((fim - inicio) / (1000 * 60 * 60 * 24)) + 1;
+        document.getElementById('feriaEditDias').value = dias;
+      }
+    }
+
+    async function salvarEdicaoFeria() {
+      const novoInicio = document.getElementById('feriaEditInicio').value;
+      const novoFim = document.getElementById('feriaEditFim').value;
+      const novosDias = parseInt(document.getElementById('feriaEditDias').value);
+      
+      if (!novoInicio || !novoFim || !novosDias) { alert('Preencha tudo!'); return; }
+      
+      const c = colabs.find(x => x.id == feriaEditandoColabId);
+      const diferenca = novosDias - feriaEditandoDiasAntigos;
+      const novoSaldo = c.dias_disponiveis - diferenca;
+      
+      if (novoSaldo < 0) {
+        let msg = 'ATENCAO: Saldo ficará negativo!\\n\\nColaborador: ' + c.nome + '\\nSaldo atual: ' + c.dias_disponiveis + '\\nDiferença: ' + diferenca + '\\nNovo saldo: ' + novoSaldo + '\\n\\nDeseja continuar?';
+        if (!confirm(msg)) return;
+      }
+      
+      await sb.from('ferias').update({ data_inicio: novoInicio, data_fim: novoFim, dias_utilizados: novosDias }).eq('id', feriaEditandoId);
+      await sb.from('colaboradores').update({ dias_disponiveis: novoSaldo }).eq('id', feriaEditandoColabId);
+      await registrarLog('EDITAR_FERIA', c.nome + ': ' + feriaEditandoDiasAntigos + ' dias → ' + novosDias + ' dias (saldo: ' + novoSaldo + ')');
+      fecharModal('editarFeria');
       carregarColabs();
       carregarFerias();
     }
@@ -586,6 +633,16 @@ const HTML = `<!DOCTYPE html>
     <div class="form-group"><label>Fim</label><input type="date" id="feriaFim" onchange="calcularDias()"></div>
     <div class="form-group"><label>Dias</label><input type="number" id="feriaDias" readonly></div>
     <div style="display: flex; gap: 10px;"><button class="btn" onclick="fecharModal('newFeria')">Cancelar</button><button class="btn btn-success" onclick="registrarFeria()">Registrar</button></div>
+  </div>
+</div>
+
+<div class="modal" id="editarFeriaModal" style="display: none;">
+  <div class="modal-box">
+    <h2 class="modal-title">Editar Férias</h2>
+    <div class="form-group"><label>Início</label><input type="date" id="feriaEditInicio" onchange="calcularDiasEdit()"></div>
+    <div class="form-group"><label>Fim</label><input type="date" id="feriaEditFim" onchange="calcularDiasEdit()"></div>
+    <div class="form-group"><label>Dias</label><input type="number" id="feriaEditDias" readonly></div>
+    <div style="display: flex; gap: 10px;"><button class="btn" onclick="fecharModal('editarFeria')">Cancelar</button><button class="btn btn-success" onclick="salvarEdicaoFeria()">Salvar</button></div>
   </div>
 </div>
 
