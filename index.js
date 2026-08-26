@@ -253,7 +253,7 @@ const HTML = `<!DOCTYPE html>
 </div>
 
 <script>
-let sb = null, usuario = null, colabs = [];
+let sb = null, usuario = null, colabs = [], isAdmin = false;
 
 async function init() {
   sb = window.supabase.createClient('https://boiakwhxkyposfyljiry.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvaWFrd2h4a3lwb3NmeWxqaXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUwODksImV4cCI6MjEwMTY4MTA4OX0.Kx1JID5_LuNATBeR67NeA_c0CxQKq6ggJLB6PJtJkWM');
@@ -273,13 +273,29 @@ async function fazerLogin() {
     const { data } = await sb.from('admin_users').select('*').eq('email', email).single();
     if (!data || data.senha_hash !== senha) { alert('Email ou senha incorretos!'); return; }
     usuario = data;
+    isAdmin = data.is_admin;
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
-    document.getElementById('nomeUsuario').textContent = data.nome;
+    document.getElementById('nomeUsuario').textContent = data.nome + (isAdmin ? ' (Admin)' : '');
+    atualizarAbas();
     carregarColabs();
   } catch (e) {
     alert('Erro: ' + e.message);
   }
+}
+
+function atualizarAbas() {
+  const abas = document.querySelectorAll('.tab');
+  abas.forEach(aba => {
+    const texto = aba.textContent;
+    const eAbaRestrita = texto.includes('Admins') || texto.includes('Auditoria') || texto.includes('Backup');
+    
+    if (eAbaRestrita && !isAdmin) {
+      aba.style.display = 'none';
+    } else {
+      aba.style.display = 'inline-block';
+    }
+  });
 }
 
 async function carregarColabs() {
@@ -750,6 +766,12 @@ async function importarBackup(event) {
 }
 
 function mostrarTab(id, btn) {
+  // Bloquear abas restritas pra usuários normais
+  if (!isAdmin && (id === 'backup' || id === 'auditoria' || id === 'admins')) {
+    alert('❌ Acesso negado! Apenas administradores podem acessar esta aba.');
+    return;
+  }
+  
   fecharModal('all');
   document.querySelectorAll('[id$="-tab"]').forEach(t => t.style.display = 'none');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -757,6 +779,7 @@ function mostrarTab(id, btn) {
   btn.classList.add('active');
   if (id === 'ferias') carregarFerias();
   if (id === 'relatorios') carregarRelatorios();
+  if (id === 'backup') {};
   if (id === 'admins') carregarAdmins();
   if (id === 'auditoria') carregarAuditoria();
 }
