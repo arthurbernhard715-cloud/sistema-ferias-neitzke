@@ -406,7 +406,9 @@ const HTML = `<!DOCTYPE html>
         if (ferias && ferias.length) {
           htmlContent += '<table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px;"><tr style="background: #1A3C8F; color: white;"><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Início</th><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Fim</th><th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Dias</th></tr>';
           ferias.forEach(f => {
-            htmlContent += '<tr><td style="padding: 8px; border: 1px solid #ddd;">' + f.data_inicio + '</td><td style="padding: 8px; border: 1px solid #ddd;">' + f.data_fim + '</td><td style="padding: 8px; text-align: center; border: 1px solid #ddd;">' + f.dias_utilizados + '</td></tr>';
+            const dataInicio = new Date(f.data_inicio).toLocaleDateString('pt-BR');
+            const dataFim = new Date(f.data_fim).toLocaleDateString('pt-BR');
+            htmlContent += '<tr><td style="padding: 8px; border: 1px solid #ddd;">' + dataInicio + '</td><td style="padding: 8px; border: 1px solid #ddd;">' + dataFim + '</td><td style="padding: 8px; text-align: center; border: 1px solid #ddd;">' + f.dias_utilizados + '</td></tr>';
           });
           htmlContent += '</table>';
         } else {
