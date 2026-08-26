@@ -19,8 +19,8 @@ const HTML = `<!DOCTYPE html>
     #loginCard p { color: var(--gray); font-size: 13px; margin-bottom: 24px; }
     .form-group { margin-bottom: 16px; }
     .form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: var(--primary); }
-    .form-group input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
-    .form-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,60,143,0.1); }
+    .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,60,143,0.1); }
     .btn-primary { background: var(--primary); color: white; width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
     .btn-primary:hover { background: #0f2557; }
     #dashboard { display: none; }
@@ -134,7 +134,7 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
-<div class="modal" id="newColabModal">
+<div class="modal" id="newColabModal" style="display: none;">
   <div class="modal-box">
     <h2 class="modal-title">Novo Colaborador</h2>
     <div class="form-group">
@@ -156,7 +156,7 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
-<div class="modal" id="newFeriaModal">
+<div class="modal" id="newFeriaModal" style="display: none;">
   <div class="modal-box">
     <h2 class="modal-title">Registrar Férias</h2>
     <div class="form-group">
@@ -182,7 +182,7 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
-<div class="modal" id="newAdminModal">
+<div class="modal" id="newAdminModal" style="display: none;">
   <div class="modal-box">
     <h2 class="modal-title">Novo Usuário</h2>
     <div class="form-group">
@@ -229,7 +229,7 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
-<div class="modal" id="novoPeriodoModal">
+<div class="modal" id="novoPeriodoModal" style="display: none;">
   <div class="modal-box">
     <h2 class="modal-title">Novo Período Aquisitivo</h2>
     <div class="form-group">
@@ -275,7 +275,7 @@ const HTML = `<!DOCTYPE html>
 </div>
 
 <script>
-let sb = null, usuario = null, colabs = [], isAdmin = false;
+let sb = null, usuario = null, colabs = [], isAdmin = false, periodoEditandoId = null;
 
 async function init() {
   sb = window.supabase.createClient('https://boiakwhxkyposfyljiry.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvaWFrd2h4a3lwb3NmeWxqaXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUwODksImV4cCI6MjEwMTY4MTA4OX0.Kx1JID5_LuNATBeR67NeA_c0CxQKq6ggJLB6PJtJkWM');
@@ -301,8 +301,6 @@ async function fazerLogin() {
     document.getElementById('nomeUsuario').textContent = data.nome + (isAdmin ? ' (Admin)' : '');
     atualizarAbas();
     carregarColabs();
-    
-    // Se é primeira vez, obriga trocar senha
     if (data.primeira_vez) {
       document.getElementById('senhaAtual').value = senha;
       document.getElementById('trocarSenhaModal').style.display = 'flex';
@@ -315,30 +313,12 @@ async function fazerLogin() {
 async function confirmarTrocaSenha() {
   const novaSenha = document.getElementById('novaSenha').value;
   const confirmarSenha = document.getElementById('confirmarSenha').value;
-  
-  if (!novaSenha || !confirmarSenha) {
-    alert('Preencha os campos de senha!');
-    return;
-  }
-  
-  if (novaSenha !== confirmarSenha) {
-    alert('As senhas não conferem!');
-    return;
-  }
-  
-  if (novaSenha.length < 6) {
-    alert('Senha deve ter no mínimo 6 caracteres!');
-    return;
-  }
-  
+  if (!novaSenha || !confirmarSenha) { alert('Preencha os campos de senha!'); return; }
+  if (novaSenha !== confirmarSenha) { alert('As senhas não conferem!'); return; }
+  if (novaSenha.length < 6) { alert('Senha deve ter no mínimo 6 caracteres!'); return; }
   try {
-    await sb.from('admin_users').update({ 
-      senha_hash: novaSenha, 
-      primeira_vez: false 
-    }).eq('id', usuario.id);
-    
+    await sb.from('admin_users').update({ senha_hash: novaSenha, primeira_vez: false }).eq('id', usuario.id);
     await registrarLog('TROCAR_SENHA', usuario.nome + ' mudou a senha no primeiro acesso');
-    
     document.getElementById('trocarSenhaModal').style.display = 'none';
     alert('✅ Senha alterada com sucesso! Você já pode usar o sistema.');
     usuario.primeira_vez = false;
@@ -352,7 +332,6 @@ function atualizarAbas() {
   abas.forEach(aba => {
     const texto = aba.textContent;
     const eAbaRestrita = texto.includes('Admins') || texto.includes('Auditoria') || texto.includes('Backup');
-    
     if (eAbaRestrita && !isAdmin) {
       aba.style.display = 'none';
     } else {
@@ -374,81 +353,7 @@ async function carregarColabs() {
   document.getElementById('listaColabs').innerHTML = html;
 }
 
-let periodoEditandoId = null;
-
-async function novoPeriodo(id) {
-  periodoEditandoId = id;
-  const c = colabs.find(x => x.id === id);
-  
-  document.getElementById('periodoColab').value = c.nome;
-  document.getElementById('periodoAtual').value = c.periodo_aquisitivo || 'Não definido';
-  document.getElementById('novoPeriodoInicio').value = '';
-  document.getElementById('novoperiodoFim').value = '';
-  document.getElementById('novoperiodoDias').value = '30';
-  document.getElementById('saldoAtual').textContent = c.dias_disponiveis;
-  atualizarPreviewSaldo();
-  
-  document.getElementById('novoPeriodoModal').style.display = 'flex';
-}
-
-function atualizarPreviewSaldo() {
-  const c = colabs.find(x => x.id === periodoEditandoId);
-  const diasAdicionais = parseInt(document.getElementById('novoperiodoDias').value) || 0;
-  const novoSaldo = c.dias_disponiveis + diasAdicionais;
-  document.getElementById('saldoAtual').textContent = c.dias_disponiveis;
-  document.getElementById('saldoNovo').textContent = novoSaldo;
-  document.getElementById('saldoNovo').style.color = novoSaldo >= 0 ? 'var(--success)' : 'var(--danger)';
-}
-
-async function confirmarNovoPeriodo() {
-  const c = colabs.find(x => x.id === periodoEditandoId);
-  const dataInicio = document.getElementById('novoPeriodoInicio').value;
-  const dataFim = document.getElementById('novoperiodoFim').value;
-  const dias = parseInt(document.getElementById('novoperiodoDias').value);
-  
-  if (!dataInicio || !dataFim || !dias) {
-    alert('Preencha todas as datas e dias!');
-    return;
-  }
-  
-  const dtInicio = new Date(dataInicio);
-  const dtFim = new Date(dataFim);
-  const dtAtualInicio = c.periodo_aquisitivo ? new Date(c.periodo_aquisitivo.split(' a ')[0].split('/').reverse().join('-')) : null;
-  
-  if (dtFim <= dtInicio) {
-    alert('Data de fim deve ser após a data de início!');
-    return;
-  }
-  
-  if (dtAtualInicio && dtInicio < dtAtualInicio) {
-    alert('Novo período não pode começar antes do período atual!');
-    return;
-  }
-  
-  const periodoStr = dataInicio.split('-').reverse().join('/') + ' a ' + dataFim.split('-').reverse().join('/');
-  const novoSaldo = c.dias_disponiveis + dias;
-  
-  let msg = '✓ NOVO PERÍODO\\n\\n';
-  msg += 'Colaborador: ' + c.nome + '\\n';
-  msg += 'Período: ' + periodoStr + '\\n';
-  msg += 'Saldo anterior: ' + c.dias_disponiveis + ' dias\\n';
-  msg += 'Adicionar: +' + dias + ' dias\\n';
-  msg += 'Novo saldo: ' + novoSaldo + ' dias\\n\\nConfirmar?';
-  
-  if (!confirm(msg)) return;
-  
-  await sb.from('colaboradores').update({ 
-    periodo_aquisitivo: periodoStr, 
-    dias_totais: dias, 
-    dias_disponiveis: novoSaldo 
-  }).eq('id', periodoEditandoId);
-  
-  await registrarLog('NOVO_PERIODO', c.nome + ' - Novo período: ' + periodoStr + ' (+' + dias + ' dias, saldo: ' + novoSaldo + ')');
-  fecharModal('novoPeriodo');
-  carregarColabs();
-}
-
-function editarColab(id) {
+async function editarColab(id) {
   const c = colabs.find(x => x.id === id);
   const nome = prompt('Nome:', c.nome);
   const periodo = prompt('Período:', c.periodo_aquisitivo);
@@ -477,6 +382,54 @@ async function deletarColab(id) {
   if (!confirm('Deletar ' + c.nome + '?')) return;
   await sb.from('colaboradores').delete().eq('id', id);
   await registrarLog('DELETAR_COLAB', 'Deletado: ' + c.nome);
+  carregarColabs();
+}
+
+async function novoPeriodo(id) {
+  periodoEditandoId = id;
+  const c = colabs.find(x => x.id === id);
+  document.getElementById('periodoColab').value = c.nome;
+  document.getElementById('periodoAtual').value = c.periodo_aquisitivo || 'Não definido';
+  document.getElementById('novoPeriodoInicio').value = '';
+  document.getElementById('novoperiodoFim').value = '';
+  document.getElementById('novoperiodoDias').value = '30';
+  document.getElementById('saldoAtual').textContent = c.dias_disponiveis;
+  atualizarPreviewSaldo();
+  document.getElementById('novoPeriodoModal').style.display = 'flex';
+}
+
+function atualizarPreviewSaldo() {
+  const c = colabs.find(x => x.id === periodoEditandoId);
+  const diasAdicionais = parseInt(document.getElementById('novoperiodoDias').value) || 0;
+  const novoSaldo = c.dias_disponiveis + diasAdicionais;
+  document.getElementById('saldoAtual').textContent = c.dias_disponiveis;
+  document.getElementById('saldoNovo').textContent = novoSaldo;
+  document.getElementById('saldoNovo').style.color = novoSaldo >= 0 ? 'var(--success)' : 'var(--danger)';
+}
+
+async function confirmarNovoPeriodo() {
+  const c = colabs.find(x => x.id === periodoEditandoId);
+  const dataInicio = document.getElementById('novoPeriodoInicio').value;
+  const dataFim = document.getElementById('novoperiodoFim').value;
+  const dias = parseInt(document.getElementById('novoperiodoDias').value);
+  if (!dataInicio || !dataFim || !dias) { alert('Preencha todas as datas e dias!'); return; }
+  const dtInicio = new Date(dataInicio);
+  const dtFim = new Date(dataFim);
+  const dtAtualInicio = c.periodo_aquisitivo ? new Date(c.periodo_aquisitivo.split(' a ')[0].split('/').reverse().join('-')) : null;
+  if (dtFim <= dtInicio) { alert('Data de fim deve ser após a data de início!'); return; }
+  if (dtAtualInicio && dtInicio < dtAtualInicio) { alert('Novo período não pode começar antes do período atual!'); return; }
+  const periodoStr = dataInicio.split('-').reverse().join('/') + ' a ' + dataFim.split('-').reverse().join('/');
+  const novoSaldo = c.dias_disponiveis + dias;
+  let msg = '✓ NOVO PERÍODO\\n\\n';
+  msg += 'Colaborador: ' + c.nome + '\\n';
+  msg += 'Período: ' + periodoStr + '\\n';
+  msg += 'Saldo anterior: ' + c.dias_disponiveis + ' dias\\n';
+  msg += 'Adicionar: +' + dias + ' dias\\n';
+  msg += 'Novo saldo: ' + novoSaldo + ' dias\\n\\nConfirmar?';
+  if (!confirm(msg)) return;
+  await sb.from('colaboradores').update({ periodo_aquisitivo: periodoStr, dias_totais: dias, dias_disponiveis: novoSaldo }).eq('id', periodoEditandoId);
+  await registrarLog('NOVO_PERIODO', c.nome + ' - Novo período: ' + periodoStr + ' (+' + dias + ' dias, saldo: ' + novoSaldo + ')');
+  fecharModal('novoPeriodo');
   carregarColabs();
 }
 
@@ -512,7 +465,6 @@ async function registrarFeria() {
   if (!cid || !inicio || !fim || !dias) { alert('Preencha tudo!'); return; }
   const c = colabs.find(x => x.id == cid);
   const novoSaldo = c.dias_disponiveis - dias;
-  
   if (novoSaldo < 0) {
     let msg = '⚠️ ATENÇÃO: Saldo ficará negativo!\\n\\n';
     msg += 'Colaborador: ' + c.nome + '\\n';
@@ -522,7 +474,6 @@ async function registrarFeria() {
     msg += 'Deseja continuar assim mesmo?';
     if (!confirm(msg)) return;
   }
-  
   await sb.from('ferias').insert({ colaborador_id: cid, data_inicio: inicio, data_fim: fim, dias_utilizados: dias, observacoes: '', criado_em: new Date().toISOString() });
   await sb.from('colaboradores').update({ dias_disponiveis: novoSaldo }).eq('id', cid);
   await registrarLog('REGISTRAR_FERIA', c.nome + ': ' + dias + ' dias (saldo: ' + novoSaldo + ')');
@@ -541,33 +492,156 @@ async function deletarFeria(id, cid, dias) {
   carregarFerias();
 }
 
-async function carregarAuditoria() {
-  const { data } = await sb.from('logs_auditoria').select('*').order('timestamp', { ascending: false }).limit(100);
-  let html = '<table><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Descrição</th></tr>';
-  if (data && data.length) {
-    data.forEach(log => {
-      const data_fmt = new Date(log.timestamp).toLocaleString('pt-BR');
-      html += '<tr><td>' + data_fmt + '</td><td>' + log.usuario_nome + '</td><td>' + log.acao + '</td><td>' + (log.descricao || '-') + '</td></tr>';
-    });
+async function carregarRelatorios() {
+  let html = '';
+  colabs.forEach(c => {
+    const corSaldo = c.dias_disponiveis < 0 ? 'color: var(--danger); font-weight: 700;' : '';
+    html += '<div style="display: flex; gap: 10px; padding: 10px; border-bottom: 1px solid #eee; align-items: center;">';
+    html += '<input type="checkbox" class="colab-check" value="' + c.id + '" style="width: 18px; height: 18px; cursor: pointer;">';
+    html += '<span style="flex: 1;">' + c.nome + ' (<span style="' + corSaldo + '">' + c.dias_disponiveis + ' dias disponíveis</span>)</span>';
+    html += '</div>';
+  });
+  document.getElementById('listaRelatorios').innerHTML = html || '<p style="text-align: center; color: var(--gray);">Nenhum colaborador</p>';
+}
+
+function selecionarTodos() {
+  document.querySelectorAll('.colab-check').forEach(check => check.checked = true);
+}
+
+function limparSelecao() {
+  document.querySelectorAll('.colab-check').forEach(check => check.checked = false);
+}
+
+async function gerarRelatorio() {
+  const selecionados = Array.from(document.querySelectorAll('.colab-check:checked')).map(c => parseInt(c.value));
+  if (selecionados.length === 0) { alert('Selecione pelo menos um colaborador!'); return; }
+  const colab_selecionados = colabs.filter(c => selecionados.includes(c.id));
+  let htmlContent = '<h1 style="color: #1A3C8F; text-align: center; margin-bottom: 30px;">📊 Relatório de Férias</h1>';
+  htmlContent += '<p style="text-align: center; color: #666; margin-bottom: 30px;">Lojas Neitzke - ' + new Date().toLocaleDateString('pt-BR') + '</p>';
+  let totalGeralDias = 0;
+  let totalColaboradores = 0;
+  for (let c of colab_selecionados) {
+    const { data: ferias } = await sb.from('ferias').select('*').eq('colaborador_id', c.id).order('data_inicio', { ascending: false });
+    const diasUsados = ferias ? ferias.reduce((sum, f) => sum + f.dias_utilizados, 0) : 0;
+    htmlContent += '<div style="page-break-inside: avoid; margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">';
+    htmlContent += '<h2 style="color: #1A3C8F; margin-bottom: 10px; font-size: 16px;">' + c.nome + '</h2>';
+    htmlContent += '<p style="font-size: 12px; color: #666; margin-bottom: 15px;">';
+    const corDisp = c.dias_disponiveis < 0 ? '#D92B2B' : '#666';
+    htmlContent += 'Período: ' + (c.periodo_aquisitivo || '-') + ' | Dias Totais: ' + c.dias_totais + ' | Dias Disponíveis: <strong style="color: ' + corDisp + ';">' + c.dias_disponiveis + '</strong>';
+    htmlContent += '</p>';
+    if (ferias && ferias.length) {
+      htmlContent += '<table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px;">';
+      htmlContent += '<tr style="background: #1A3C8F; color: white;"><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Início</th><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Fim</th><th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Dias</th></tr>';
+      ferias.forEach(f => {
+        htmlContent += '<tr><td style="padding: 8px; border: 1px solid #ddd;">' + f.data_inicio + '</td><td style="padding: 8px; border: 1px solid #ddd;">' + f.data_fim + '</td><td style="padding: 8px; text-align: center; border: 1px solid #ddd;">' + f.dias_utilizados + '</td></tr>';
+      });
+      htmlContent += '</table>';
+    } else {
+      htmlContent += '<p style="font-size: 12px; color: var(--gray); text-align: center;">Nenhuma féria registrada</p>';
+    }
+    htmlContent += '<p style="font-weight: 600; color: #D92B2B; font-size: 13px;">Dias Utilizados: ' + diasUsados + '</p>';
+    htmlContent += '</div>';
+    totalGeralDias += diasUsados;
+    totalColaboradores++;
   }
-  html += '</table>';
-  document.getElementById('listaAuditoria').innerHTML = html;
+  htmlContent += '<div style="background: #1A3C8F; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-top: 30px;">';
+  htmlContent += '<h2 style="font-size: 16px; margin-bottom: 10px;">TOTALIZAÇÕES</h2>';
+  htmlContent += '<p style="font-size: 14px; margin: 5px 0;">Colaboradores: <strong>' + totalColaboradores + '</strong></p>';
+  htmlContent += '<p style="font-size: 14px; margin: 5px 0;">Dias Utilizados: <strong>' + totalGeralDias + '</strong></p>';
+  htmlContent += '<p style="font-size: 12px; margin-top: 15px; opacity: 0.9;">Relatório gerado em ' + new Date().toLocaleString('pt-BR') + '</p>';
+  htmlContent += '</div>';
+  const opt = { margin: 10, filename: 'Relatorio_Ferias_' + new Date().toISOString().split('T')[0] + '.pdf', html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' } };
+  html2pdf().set(opt).from(htmlContent).save();
+}
+
+async function exportarBackup() {
+  try {
+    const [colabs, ferias, admins, auditoria] = await Promise.all([
+      sb.from('colaboradores').select('*'),
+      sb.from('ferias').select('*'),
+      sb.from('admin_users').select('id, nome, email, is_admin, periodo_aquisitivo, criado_em'),
+      sb.from('logs_auditoria').select('*')
+    ]);
+    const backup = {
+      timestamp: new Date().toISOString(),
+      versao: '1.0',
+      colaboradores: colabs.data || [],
+      ferias: ferias.data || [],
+      admin_users: admins.data || [],
+      logs_auditoria: auditoria.data || []
+    };
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'backup_ferias_' + new Date().toISOString().split('T')[0] + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    await registrarLog('EXPORTAR_BACKUP', 'Backup exportado com ' + colabs.data.length + ' colaboradores');
+    alert('✅ Backup exportado com sucesso!');
+  } catch (e) {
+    alert('❌ Erro ao exportar: ' + e.message);
+  }
+}
+
+async function importarBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const msg = '⚠️ ATENÇÃO: Esta ação vai DELETAR e RESTAURAR todos os dados!\\n\\n';
+  const confirmMsg = msg + 'Tem certeza que deseja restaurar o backup?\\n\\n(Esta ação não pode ser desfeita)';
+  if (!confirm(confirmMsg)) {
+    document.getElementById('uploadBackup').value = '';
+    return;
+  }
+  try {
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    if (!backup.colaboradores || !backup.ferias || !backup.admin_users) {
+      alert('❌ Arquivo de backup inválido!');
+      return;
+    }
+    alert('🔄 Restaurando dados... Pode levar alguns segundos...');
+    await sb.from('ferias').delete().neq('id', 'null');
+    await sb.from('colaboradores').delete().neq('id', 'null');
+    await sb.from('logs_auditoria').delete().neq('id', 'null');
+    if (backup.colaboradores.length > 0) {
+      await sb.from('colaboradores').insert(backup.colaboradores);
+    }
+    if (backup.ferias.length > 0) {
+      await sb.from('ferias').insert(backup.ferias);
+    }
+    if (backup.admin_users.length > 0) {
+      await sb.from('admin_users').delete().neq('id', 'null');
+      await sb.from('admin_users').insert(backup.admin_users.map(a => ({
+        id: a.id,
+        nome: a.nome,
+        email: a.email,
+        is_admin: a.is_admin,
+        periodo_aquisitivo: a.periodo_aquisitivo,
+        senha_hash: 'RESTAURADO',
+        criado_em: a.criado_em
+      })));
+    }
+    await registrarLog('RESTAURAR_BACKUP', 'Backup restaurado com sucesso');
+    alert('✅ Backup restaurado com sucesso!\\n\\nOs dados foram atualizados.');
+    document.getElementById('uploadBackup').value = '';
+    location.reload();
+  } catch (e) {
+    alert('❌ Erro ao restaurar: ' + e.message);
+    document.getElementById('uploadBackup').value = '';
+  }
 }
 
 async function resetarSenhaUsuario(id) {
   if (!confirm('Resetar senha deste usuário?')) return;
-  
   const senhaTemp = Math.random().toString(36).slice(-8);
-  
   try {
-    await sb.from('admin_users').update({ 
-      senha_hash: senhaTemp, 
-      primeira_vez: true 
-    }).eq('id', id);
-    
+    await sb.from('admin_users').update({ senha_hash: senhaTemp, primeira_vez: true }).eq('id', id);
     await registrarLog('RESETAR_SENHA', 'Senha resetada por admin');
-    
-    alert('✅ Senha resetada!\\n\\nSenha temporária: ' + senhaTemp + '\\n\\nO usuário será obrigado a trocar na próximo login.');
+    alert('✅ Senha resetada!\\n\\nSenha temporária: ' + senhaTemp + '\\n\\nO usuário será obrigado a trocar no próximo login.');
     carregarAdmins();
   } catch (e) {
     alert('❌ Erro: ' + e.message);
@@ -607,6 +681,19 @@ async function deletarAdmin(id) {
   carregarAdmins();
 }
 
+async function carregarAuditoria() {
+  const { data } = await sb.from('logs_auditoria').select('*').order('timestamp', { ascending: false }).limit(100);
+  let html = '<table><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Descrição</th></tr>';
+  if (data && data.length) {
+    data.forEach(log => {
+      const data_fmt = new Date(log.timestamp).toLocaleString('pt-BR');
+      html += '<tr><td>' + data_fmt + '</td><td>' + log.usuario_nome + '</td><td>' + log.acao + '</td><td>' + (log.descricao || '-') + '</td></tr>';
+    });
+  }
+  html += '</table>';
+  document.getElementById('listaAuditoria').innerHTML = html;
+}
+
 async function abrirHistorico(colabId) {
   const c = colabs.find(x => x.id === colabId);
   if (!c) return;
@@ -637,9 +724,7 @@ function exportarPDF() {
 }
 
 function abrirModal(tipo) {
-  // Fecha todos primeiro
   document.querySelectorAll('[id$="Modal"]').forEach(m => m.style.display = 'none');
-  
   if (tipo === 'newColab') {
     document.getElementById('colNome').value = '';
     document.getElementById('colPeriodo').value = '';
@@ -672,189 +757,11 @@ function fecharModal(tipo) {
   if (tipo === 'all') document.querySelectorAll('[id$="Modal"]').forEach(m => m.style.display = 'none');
 }
 
-async function carregarRelatorios() {
-  let html = '';
-  let totalDias = 0;
-  
-  colabs.forEach(c => {
-    const corSaldo = c.dias_disponiveis < 0 ? 'color: var(--danger); font-weight: 700;' : '';
-    html += '<div style="display: flex; gap: 10px; padding: 10px; border-bottom: 1px solid #eee; align-items: center;">';
-    html += '<input type="checkbox" class="colab-check" value="' + c.id + '" style="width: 18px; height: 18px; cursor: pointer;">';
-    html += '<span style="flex: 1;">' + c.nome + ' (<span style="' + corSaldo + '">' + c.dias_disponiveis + ' dias disponíveis</span>)</span>';
-    html += '</div>';
-  });
-  
-  document.getElementById('listaRelatorios').innerHTML = html || '<p style="text-align: center; color: var(--gray);">Nenhum colaborador</p>';
-}
-
-function selecionarTodos() {
-  document.querySelectorAll('.colab-check').forEach(check => check.checked = true);
-}
-
-function limparSelecao() {
-  document.querySelectorAll('.colab-check').forEach(check => check.checked = false);
-}
-
-async function gerarRelatorio() {
-  const selecionados = Array.from(document.querySelectorAll('.colab-check:checked')).map(c => parseInt(c.value));
-  
-  if (selecionados.length === 0) {
-    alert('Selecione pelo menos um colaborador!');
-    return;
-  }
-  
-  const colab_selecionados = colabs.filter(c => selecionados.includes(c.id));
-  let htmlContent = '<h1 style="color: #1A3C8F; text-align: center; margin-bottom: 30px;">📊 Relatório de Férias</h1>';
-  htmlContent += '<p style="text-align: center; color: #666; margin-bottom: 30px;">Lojas Neitzke - ' + new Date().toLocaleDateString('pt-BR') + '</p>';
-  
-  let totalGeralDias = 0;
-  let totalColaboradores = 0;
-  
-  for (let c of colab_selecionados) {
-    const { data: ferias } = await sb.from('ferias').select('*').eq('colaborador_id', c.id).order('data_inicio', { ascending: false });
-    const diasUsados = ferias ? ferias.reduce((sum, f) => sum + f.dias_utilizados, 0) : 0;
-    
-    htmlContent += '<div style="page-break-inside: avoid; margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">';
-    htmlContent += '<h2 style="color: #1A3C8F; margin-bottom: 10px; font-size: 16px;">' + c.nome + '</h2>';
-    htmlContent += '<p style="font-size: 12px; color: #666; margin-bottom: 15px;">';
-    const corDisp = c.dias_disponiveis < 0 ? '#D92B2B' : '#666';
-    htmlContent += 'Período: ' + (c.periodo_aquisitivo || '-') + ' | Dias Totais: ' + c.dias_totais + ' | Dias Disponíveis: <strong style="color: ' + corDisp + ';">' + c.dias_disponiveis + '</strong>';
-    htmlContent += '</p>';
-    
-    if (ferias && ferias.length) {
-      htmlContent += '<table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px;">';
-      htmlContent += '<tr style="background: #1A3C8F; color: white;"><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Início</th><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Fim</th><th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Dias</th></tr>';
-      ferias.forEach(f => {
-        htmlContent += '<tr><td style="padding: 8px; border: 1px solid #ddd;">' + f.data_inicio + '</td><td style="padding: 8px; border: 1px solid #ddd;">' + f.data_fim + '</td><td style="padding: 8px; text-align: center; border: 1px solid #ddd;">' + f.dias_utilizados + '</td></tr>';
-      });
-      htmlContent += '</table>';
-    } else {
-      htmlContent += '<p style="font-size: 12px; color: var(--gray); text-align: center;">Nenhuma féria registrada</p>';
-    }
-    
-    htmlContent += '<p style="font-weight: 600; color: #D92B2B; font-size: 13px;">Dias Utilizados: ' + diasUsados + '</p>';
-    htmlContent += '</div>';
-    
-    totalGeralDias += diasUsados;
-    totalColaboradores++;
-  }
-  
-  htmlContent += '<div style="background: #1A3C8F; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-top: 30px;">';
-  htmlContent += '<h2 style="font-size: 16px; margin-bottom: 10px;">TOTALIZAÇÕES</h2>';
-  htmlContent += '<p style="font-size: 14px; margin: 5px 0;">Colaboradores: <strong>' + totalColaboradores + '</strong></p>';
-  htmlContent += '<p style="font-size: 14px; margin: 5px 0;">Dias Utilizados: <strong>' + totalGeralDias + '</strong></p>';
-  htmlContent += '<p style="font-size: 12px; margin-top: 15px; opacity: 0.9;">Relatório gerado em ' + new Date().toLocaleString('pt-BR') + '</p>';
-  htmlContent += '</div>';
-  
-  const opt = { margin: 10, filename: 'Relatorio_Ferias_' + new Date().toISOString().split('T')[0] + '.pdf', html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' } };
-  html2pdf().set(opt).from(htmlContent).save();
-}
-
-async function exportarBackup() {
-  try {
-    const [colabs, ferias, admins, auditoria] = await Promise.all([
-      sb.from('colaboradores').select('*'),
-      sb.from('ferias').select('*'),
-      sb.from('admin_users').select('id, nome, email, is_admin, periodo_aquisitivo, criado_em'),
-      sb.from('logs_auditoria').select('*')
-    ]);
-    
-    const backup = {
-      timestamp: new Date().toISOString(),
-      versao: '1.0',
-      colaboradores: colabs.data || [],
-      ferias: ferias.data || [],
-      admin_users: admins.data || [],
-      logs_auditoria: auditoria.data || []
-    };
-    
-    const json = JSON.stringify(backup, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'backup_ferias_' + new Date().toISOString().split('T')[0] + '.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    await registrarLog('EXPORTAR_BACKUP', 'Backup exportado com ' + colabs.data.length + ' colaboradores');
-    alert('✅ Backup exportado com sucesso!');
-  } catch (e) {
-    alert('❌ Erro ao exportar: ' + e.message);
-  }
-}
-
-async function importarBackup(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  
-  const msg = '⚠️ ATENÇÃO: Esta ação vai DELETAR e RESTAURAR todos os dados!\\n\\n';
-  const confirmMsg = msg + 'Tem certeza que deseja restaurar o backup?\\n\\n(Esta ação não pode ser desfeita)';
-  
-  if (!confirm(confirmMsg)) {
-    document.getElementById('uploadBackup').value = '';
-    return;
-  }
-  
-  try {
-    const text = await file.text();
-    const backup = JSON.parse(text);
-    
-    if (!backup.colaboradores || !backup.ferias || !backup.admin_users) {
-      alert('❌ Arquivo de backup inválido!');
-      return;
-    }
-    
-    alert('🔄 Restaurando dados... Pode levar alguns segundos...');
-    
-    // Deletar tudo
-    await sb.from('ferias').delete().neq('id', 'null');
-    await sb.from('colaboradores').delete().neq('id', 'null');
-    await sb.from('logs_auditoria').delete().neq('id', 'null');
-    
-    // Restaurar colaboradores
-    if (backup.colaboradores.length > 0) {
-      await sb.from('colaboradores').insert(backup.colaboradores);
-    }
-    
-    // Restaurar férias
-    if (backup.ferias.length > 0) {
-      await sb.from('ferias').insert(backup.ferias);
-    }
-    
-    // Restaurar admins (cuidado com senhas)
-    if (backup.admin_users.length > 0) {
-      await sb.from('admin_users').delete().neq('id', 'null');
-      await sb.from('admin_users').insert(backup.admin_users.map(a => ({
-        id: a.id,
-        nome: a.nome,
-        email: a.email,
-        is_admin: a.is_admin,
-        periodo_aquisitivo: a.periodo_aquisitivo,
-        senha_hash: 'RESTAURADO',
-        criado_em: a.criado_em
-      })));
-    }
-    
-    await registrarLog('RESTAURAR_BACKUP', 'Backup restaurado com sucesso');
-    alert('✅ Backup restaurado com sucesso!\\n\\nOs dados foram atualizados.');
-    document.getElementById('uploadBackup').value = '';
-    location.reload();
-  } catch (e) {
-    alert('❌ Erro ao restaurar: ' + e.message);
-    document.getElementById('uploadBackup').value = '';
-  }
-}
-
 function mostrarTab(id, btn) {
-  // Bloquear abas restritas pra usuários normais
   if (!isAdmin && (id === 'backup' || id === 'auditoria' || id === 'admins')) {
     alert('❌ Acesso negado! Apenas administradores podem acessar esta aba.');
     return;
   }
-  
   fecharModal('all');
   document.querySelectorAll('[id$="-tab"]').forEach(t => t.style.display = 'none');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
