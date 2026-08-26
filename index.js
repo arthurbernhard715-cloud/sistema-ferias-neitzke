@@ -89,6 +89,24 @@ const HTML = `<!DOCTYPE html>
       sb = window.supabase.createClient('https://boiakwhxkyposfyljiry.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvaWFrd2h4a3lwb3NmeWxqaXJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUwODksImV4cCI6MjEwMTY4MTA4OX0.Kx1JID5_LuNATBeR67NeA_c0CxQKq6ggJLB6PJtJkWM');
       document.getElementById('novoperiodoDias').addEventListener('change', atualizarPreviewSaldo);
       document.getElementById('novoperiodoDias').addEventListener('input', atualizarPreviewSaldo);
+      restaurarSessao();
+    }
+
+    function restaurarSessao() {
+      const usuarioSalvo = localStorage.getItem('usuario_ferias');
+      if (usuarioSalvo) {
+        try {
+          usuario = JSON.parse(usuarioSalvo);
+          isAdmin = usuario.is_admin;
+          document.getElementById('loginPage').style.display = 'none';
+          document.getElementById('dashboard').style.display = 'block';
+          document.getElementById('nomeUsuario').textContent = usuario.nome + (isAdmin ? ' (Admin)' : '');
+          atualizarAbas();
+          carregarColabs();
+        } catch (e) {
+          localStorage.removeItem('usuario_ferias');
+        }
+      }
     }
 
     async function registrarLog(acao, desc) {
@@ -104,6 +122,7 @@ const HTML = `<!DOCTYPE html>
         if (!data || data.senha_hash !== senha) { alert('Email ou senha incorretos!'); return; }
         usuario = data;
         isAdmin = data.is_admin;
+        localStorage.setItem('usuario_ferias', JSON.stringify(usuario));
         document.getElementById('loginPage').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
         document.getElementById('nomeUsuario').textContent = data.nome + (isAdmin ? ' (Admin)' : '');
@@ -587,7 +606,7 @@ const HTML = `<!DOCTYPE html>
       if (id === 'auditoria') carregarAuditoria();
     }
 
-    function logout() { location.reload(); }
+    function logout() { localStorage.removeItem('usuario_ferias'); location.reload(); }
 
     init();
   <\/script>
