@@ -354,7 +354,7 @@ const HTML = `<!DOCTYPE html>
       if (data && data.length) {
         data.forEach(a => {
           html += '<tr><td>' + a.nome + '</td><td>' + a.email + '</td><td>' + (a.is_admin ? 'Admin' : 'Usuário') + '</td>';
-          html += '<td><button class="btn btn-success" onclick="resetarSenhaUsuario(' + a.id + ')" style="background: #FF9800;">Reset</button> <button class="btn" onclick="deletarAdmin(' + a.id + ')">Deletar</button></td></tr>';
+          html += '<td><button class="btn btn-success" onclick="resetarSenhaUsuario(\'' + a.id + '\')" style="background: #FF9800;">Reset</button> <button class="btn" onclick="deletarAdmin(\'' + a.id + '\')">Deletar</button></td></tr>';
         });
       }
       html += '</table>';
