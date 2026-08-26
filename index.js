@@ -42,22 +42,44 @@ const HTML = `<!DOCTYPE html>
     .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
     .modal-box { background: white; padding: 24px; border-radius: var(--radius); width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
     .modal-title { color: var(--primary); font-size: 18px; margin-bottom: 16px; }
+    
     @media (max-width: 768px) {
       #loginCard { padding: 24px; }
       #loginCard h1 { font-size: 24px; }
       .topbar { padding: 12px 16px; }
       .topbar h1 { font-size: 18px; }
+      .topbar > div { width: 100%; }
       .main { padding: 12px; }
+      .tabs { gap: 2px; margin-bottom: 16px; }
+      .tab { padding: 10px 12px; font-size: 12px; }
+      .card { padding: 12px; margin-bottom: 12px; }
+      .card h2 { font-size: 14px; margin-bottom: 10px; }
       table { font-size: 11px; }
       th, td { padding: 6px; }
       .btn { padding: 5px 8px; font-size: 10px; }
+      .modal-box { padding: 20px; }
+      .form-group { margin-bottom: 12px; }
+      .form-group input, .form-group select { font-size: 16px; padding: 12px; }
     }
+    
     @media (max-width: 480px) {
       #loginCard { padding: 20px; }
       #loginCard h1 { font-size: 22px; }
+      .topbar { padding: 10px 12px; }
+      .topbar h1 { font-size: 16px; }
+      .topbar > div { font-size: 12px; }
+      .main { padding: 8px; }
+      .tabs { gap: 0px; margin-bottom: 12px; }
+      .tab { padding: 8px 10px; font-size: 11px; }
+      .card { padding: 10px; margin-bottom: 10px; }
+      .card h2 { font-size: 13px; margin-bottom: 8px; }
       table { font-size: 10px; }
       th, td { padding: 4px; }
-      .btn { padding: 4px 6px; font-size: 9px; }
+      .btn { padding: 4px 6px; font-size: 9px; margin: 1px; }
+      .modal-box { padding: 16px; }
+      .form-group { margin-bottom: 10px; }
+      .form-group input, .form-group select { font-size: 16px; padding: 12px; }
+      .modal-title { font-size: 16px; }
     }
   <\/style>
   <script>
@@ -255,6 +277,17 @@ const HTML = `<!DOCTYPE html>
       html += '</table>';
       const container = document.getElementById('listaFerias');
       container.innerHTML = html;
+      
+      container.querySelectorAll('.btn-editar-feria').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const id = this.getAttribute('data-id');
+          const colabId = this.getAttribute('data-colab-id');
+          const inicio = this.getAttribute('data-inicio');
+          const fim = this.getAttribute('data-fim');
+          const dias = this.getAttribute('data-dias');
+          abrirEditarFeria(id, colabId, inicio, fim, dias);
+        });
+      });
     }
 
     function calcularDias() {
@@ -296,11 +329,289 @@ const HTML = `<!DOCTYPE html>
       carregarFerias();
     }
 
+    let feriaEditandoId = null;
+    let feriaEditandoColabId = null;
+    let feriaEditandoDiasAntigos = null;
+
+    async function abrirEditarFeria(id, colabId, dataInicio, dataFim, dias) {
+      feriaEditandoId = id;
+      feriaEditandoColabId = colabId;
+      feriaEditandoDiasAntigos = dias;
+      document.getElementById('feriaEditInicio').value = dataInicio;
+      document.getElementById('feriaEditFim').value = dataFim;
+      document.getElementById('feriaEditDias').value = dias;
+      document.getElementById('editarFeriaModal').style.display = 'flex';
+      
+      const btnSalvar = document.getElementById('btnSalvarEdicaoFeria');
+      btnSalvar.onclick = null;
+      btnSalvar.addEventListener('click', salvarEdicaoFeria, { once: true });
+    }
+
+    function calcularDiasEdit() {
+      const inicio = new Date(document.getElementById('feriaEditInicio').value);
+      const fim = new Date(document.getElementById('feriaEditFim').value);
+      if (inicio && fim) {
+        const dias = Math.floor((fim - inicio) / (1000 * 60 * 60 * 24)) + 1;
+        document.getElementById('feriaEditDias').value = dias;
+      }
+    }
+
+    async function salvarEdicaoFeria() {
+      const novoInicio = document.getElementById('feriaEditInicio').value;
+      const novoFim = document.getElementById('feriaEditFim').value;
+      const novosDias = parseInt(document.getElementById('feriaEditDias').value);
+      
+      if (!novoInicio || !novoFim || !novosDias) { alert('Preencha tudo!'); return; }
+      
+      const c = colabs.find(x => x.id == feriaEditandoColabId);
+      const diferenca = novosDias - feriaEditandoDiasAntigos;
+      const novoSaldo = c.dias_disponiveis - diferenca;
+      
+      if (novoSaldo < 0) {
+        let msg = 'ATENCAO: Saldo ficará negativo!\\n\\nColaborador: ' + c.nome + '\\nSaldo atual: ' + c.dias_disponiveis + '\\nDiferença: ' + diferenca + '\\nNovo saldo: ' + novoSaldo + '\\n\\nDeseja continuar?';
+        if (!confirm(msg)) return;
+      }
+      
+      await sb.from('ferias').update({ data_inicio: novoInicio, data_fim: novoFim, dias_utilizados: novosDias }).eq('id', feriaEditandoId);
+      await sb.from('colaboradores').update({ dias_disponiveis: novoSaldo }).eq('id', feriaEditandoColabId);
+      await registrarLog('EDITAR_FERIA', c.nome + ': ' + feriaEditandoDiasAntigos + ' dias → ' + novosDias + ' dias (saldo: ' + novoSaldo + ')');
+      fecharModal('editarFeria');
+      carregarColabs();
+      carregarFerias();
+    }
+
+    async function carregarRelatorios() {
+      let html = '';
+      colabs.forEach(c => {
+        const corSaldo = c.dias_disponiveis < 0 ? 'color: var(--danger); font-weight: 700;' : '';
+        html += '<div style="display: flex; gap: 10px; padding: 10px; border-bottom: 1px solid #eee; align-items: center;">';
+        html += '<input type="checkbox" class="colab-check" value="' + c.id + '" style="width: 18px; height: 18px; cursor: pointer;">';
+        html += '<span style="flex: 1;">' + c.nome + ' (<span style="' + corSaldo + '">' + c.dias_disponiveis + ' dias disponíveis</span>)</span>';
+        html += '</div>';
+      });
+      document.getElementById('listaRelatorios').innerHTML = html || '<p>Nenhum colaborador</p>';
+    }
+
+    function selecionarTodos() { document.querySelectorAll('.colab-check').forEach(c => c.checked = true); }
+    function limparSelecao() { document.querySelectorAll('.colab-check').forEach(c => c.checked = false); }
+
+    async function gerarRelatorio() {
+      const selecionados = Array.from(document.querySelectorAll('.colab-check:checked')).map(c => parseInt(c.value));
+      if (selecionados.length === 0) { alert('Selecione um colaborador!'); return; }
+      const colab_selecionados = colabs.filter(c => selecionados.includes(c.id));
+      let htmlContent = '<div style="text-align: center; margin-bottom: 30px;"><img src="' + LOGO_BASE64 + '" style="height: 80px; object-fit: contain;"><h1 style="color: #1A3C8F; text-align: center; margin-top: 10px; margin-bottom: 10px;">Relatório de Férias</h1><p style="text-align: center; color: #666; margin: 0;">Lojas Neitzke - ' + new Date().toLocaleDateString('pt-BR') + '</p></div>';
+      let totalGeralDias = 0, totalColaboradores = 0;
+      for (let c of colab_selecionados) {
+        const { data: ferias } = await sb.from('ferias').select('*').eq('colaborador_id', c.id).order('data_inicio', { ascending: false });
+        const diasUsados = ferias ? ferias.reduce((sum, f) => sum + f.dias_utilizados, 0) : 0;
+        htmlContent += '<div style="page-break-inside: avoid; margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;"><h2 style="color: #1A3C8F; margin-bottom: 10px; font-size: 16px;">' + c.nome + '</h2>';
+        htmlContent += '<p style="font-size: 12px; color: #666; margin-bottom: 15px;">Período: ' + (c.periodo_aquisitivo || '-') + ' | Dias Totais: ' + c.dias_totais + ' | Dias Disponíveis: ' + c.dias_disponiveis + '</p>';
+        if (ferias && ferias.length) {
+          htmlContent += '<table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px;"><tr style="background: #1A3C8F; color: white;"><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Início</th><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Fim</th><th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Dias</th></tr>';
+          ferias.forEach(f => {
+            const dataInicio = new Date(f.data_inicio).toLocaleDateString('pt-BR');
+            const dataFim = new Date(f.data_fim).toLocaleDateString('pt-BR');
+            htmlContent += '<tr><td style="padding: 8px; border: 1px solid #ddd;">' + dataInicio + '</td><td style="padding: 8px; border: 1px solid #ddd;">' + dataFim + '</td><td style="padding: 8px; text-align: center; border: 1px solid #ddd;">' + f.dias_utilizados + '</td></tr>';
+          });
+          htmlContent += '</table>';
+        } else {
+          htmlContent += '<p style="font-size: 12px; color: gray; text-align: center;">Nenhuma féria registrada</p>';
+        }
+        htmlContent += '<p style="font-weight: 600; color: #D92B2B; font-size: 13px;">Dias Utilizados: ' + diasUsados + '</p></div>';
+        totalGeralDias += diasUsados;
+        totalColaboradores++;
+      }
+      const opt = { margin: 15, filename: 'Relatorio_Ferias_' + new Date().toISOString().split('T')[0] + '.pdf', html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' } };
+      html2pdf().set(opt).from(htmlContent).save();
+    }
+
+    async function exportarBackup() {
+      try {
+        const [colabs, ferias, admins] = await Promise.all([sb.from('colaboradores').select('*'), sb.from('ferias').select('*'), sb.from('admin_users').select('id, nome, email, is_admin, criado_em')]);
+        const backup = { timestamp: new Date().toISOString(), versao: '1.0', colaboradores: colabs.data || [], ferias: ferias.data || [], admin_users: admins.data || [] };
+        const json = JSON.stringify(backup, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'backup_ferias_' + new Date().toISOString().split('T')[0] + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        await registrarLog('EXPORTAR_BACKUP', 'Backup exportado');
+        alert('Backup exportado com sucesso!');
+      } catch (e) {
+        alert('Erro ao exportar: ' + e.message);
+      }
+    }
+
+    async function importarBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (!confirm('Vai deletar TODOS os dados! Tem certeza?')) { document.getElementById('uploadBackup').value = ''; return; }
+      try {
+        const text = await file.text();
+        const backup = JSON.parse(text);
+        if (!backup.colaboradores || !backup.ferias || !backup.admin_users) { alert('Arquivo inválido!'); return; }
+        alert('Restaurando...');
+        await sb.from('ferias').delete().neq('id', 'null');
+        await sb.from('colaboradores').delete().neq('id', 'null');
+        if (backup.colaboradores.length > 0) await sb.from('colaboradores').insert(backup.colaboradores);
+        if (backup.ferias.length > 0) await sb.from('ferias').insert(backup.ferias);
+        await registrarLog('RESTAURAR_BACKUP', 'Backup restaurado');
+        alert('Backup restaurado! Recarregando...');
+        document.getElementById('uploadBackup').value = '';
+        location.reload();
+      } catch (e) {
+        alert('Erro: ' + e.message);
+        document.getElementById('uploadBackup').value = '';
+      }
+    }
+
+    async function resetarSenhaUsuario(id) {
+      if (!confirm('Resetar senha?')) return;
+      const senhaTemp = Math.random().toString(36).slice(-8);
+      try {
+        await sb.from('admin_users').update({ senha_hash: senhaTemp, primeira_vez: true }).eq('id', id);
+        await registrarLog('RESETAR_SENHA', 'Senha resetada');
+        alert('Senha: ' + senhaTemp);
+        carregarAdmins();
+      } catch (e) {
+        alert('Erro: ' + e.message);
+      }
+    }
+
+    async function carregarAdmins() {
+      const { data } = await sb.from('admin_users').select('*').order('nome');
+      let html = '<table><tr><th>Nome</th><th>Email</th><th>Tipo</th><th>Ação</th></tr>';
+      if (data && data.length) {
+        data.forEach(a => {
+          html += '<tr><td>' + a.nome + '</td><td>' + a.email + '</td><td>' + (a.is_admin ? 'Admin' : 'Usuário') + '</td>';
+          html += '<td><button class="btn btn-success btn-reset" data-id="' + a.id + '" style="background: #FF9800;">Reset</button> <button class="btn btn-delete" data-id="' + a.id + '">Deletar</button></td></tr>';
+        });
+      }
+      html += '</table>';
+      const container = document.getElementById('listaAdmins');
+      container.innerHTML = html;
+      
+      container.querySelectorAll('.btn-reset').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const id = this.getAttribute('data-id');
+          if (!confirm('Resetar senha deste usuário?')) return;
+          const senhaTemp = Math.random().toString(36).slice(-8);
+          sb.from('admin_users').update({ senha_hash: senhaTemp, primeira_vez: true }).eq('id', id).then(() => {
+            registrarLog('RESETAR_SENHA', 'Senha resetada');
+            alert('Senha temporária: ' + senhaTemp);
+            carregarAdmins();
+          });
+        });
+      });
+      
+      container.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const id = this.getAttribute('data-id');
+          if (!confirm('Deletar este usuário?')) return;
+          sb.from('admin_users').delete().eq('id', id).then(() => {
+            registrarLog('DELETAR_USUARIO', 'Usuário deletado');
+            carregarAdmins();
+          });
+        });
+      });
+    }
+
+    async function criarAdmin() {
+      const nome = document.getElementById('adminNome').value;
+      const email = document.getElementById('adminEmail').value;
+      const isAdmin = document.getElementById('adminTipo').value === 'true';
+      if (!nome || !email) { alert('Preencha tudo!'); return; }
+      const senhaTemp = Math.random().toString(36).slice(-8);
+      await sb.from('admin_users').insert({ nome, email, senha_hash: senhaTemp, is_admin: isAdmin, primeira_vez: true, criado_em: new Date().toISOString() });
+      await registrarLog('CRIAR_USUARIO', 'Novo usuário: ' + email);
+      alert('Email: ' + email + '  Senha: ' + senhaTemp);
+      fecharModal('newAdmin');
+      carregarAdmins();
+    }
+
+    async function deletarAdmin(id) {
+      if (!confirm('Deletar?')) return;
+      await sb.from('admin_users').delete().eq('id', id);
+      await registrarLog('DELETAR_USUARIO', 'Usuário deletado');
+      carregarAdmins();
+    }
+
+    async function carregarAuditoria() {
+      const { data } = await sb.from('logs_auditoria').select('*').order('timestamp', { ascending: false }).limit(100);
+      let html = '<table><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Descrição</th></tr>';
+      if (data && data.length) {
+        data.forEach(log => {
+          const data_fmt = new Date(log.timestamp).toLocaleString('pt-BR');
+          html += '<tr><td>' + data_fmt + '</td><td>' + log.usuario_nome + '</td><td>' + log.acao + '</td><td>' + (log.descricao || '-') + '</td></tr>';
+        });
+      }
+      html += '</table>';
+      document.getElementById('listaAuditoria').innerHTML = html;
+    }
+
+    async function abrirHistorico(colabId) {
+      const c = colabs.find(x => x.id === colabId);
+      if (!c) return;
+      document.getElementById('historicoTitulo').textContent = 'Férias de ' + c.nome;
+      const { data } = await sb.from('ferias').select('*').eq('colaborador_id', colabId).order('data_inicio', { ascending: false });
+      let html = '';
+      if (data && data.length) {
+        html = '<table><tr><th>Início</th><th>Fim</th><th>Dias</th><th>Obs</th></tr>';
+        data.forEach(f => {
+          const dataInicio = new Date(f.data_inicio).toLocaleDateString('pt-BR');
+          const dataFim = new Date(f.data_fim).toLocaleDateString('pt-BR');
+          html += '<tr><td>' + dataInicio + '</td><td>' + dataFim + '</td><td>' + f.dias_utilizados + '</td><td>' + (f.observacoes || '-') + '</td></tr>';
+        });
+        html += '</table>';
+        const total = data.reduce((sum, f) => sum + f.dias_utilizados, 0);
+        html += '<p style="margin-top: 15px; color: var(--primary); font-weight: 600;">Total: ' + total + ' dias</p>';
+      } else {
+        html = '<p>Nenhuma féria registrada</p>';
+      }
+      document.getElementById('historicoConteudo').innerHTML = html;
+      document.getElementById('historicoModal').style.display = 'flex';
+    }
+
+    function exportarPDF() {
+      const titulo = document.getElementById('historicoTitulo').textContent;
+      const conteudo = document.getElementById('historicoConteudo').innerHTML;
+      const html = '<h1>' + titulo + '</h1><p>Lojas Neitzke - Sistema de Férias</p>' + conteudo + '<p style="margin-top:40px;font-size:12px;color:#999;">Gerado em ' + new Date().toLocaleString('pt-BR') + '</p>';
+      const opt = { margin: 10, filename: titulo.replace(/\\s+/g, '_') + '.pdf', html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' } };
+      html2pdf().set(opt).from(html).save();
+    }
+
+    function abrirModal(tipo) {
+      document.querySelectorAll('[id\$="Modal"]').forEach(m => m.style.display = 'none');
+      if (tipo === 'newColab') { document.getElementById('colNome').value = ''; document.getElementById('colPeriodoInicio').value = ''; document.getElementById('colPeriodoFim').value = ''; document.getElementById('colDias').value = '30'; document.getElementById('newColabModal').style.display = 'flex'; }
+      if (tipo === 'newFeria') { const sel = document.getElementById('feriaColab'); sel.innerHTML = '<option>Selecione</option>'; colabs.forEach(c => { sel.innerHTML += '<option value="' + c.id + '">' + c.nome + '</option>'; }); document.getElementById('feriaInicio').value = ''; document.getElementById('feriaFim').value = ''; document.getElementById('feriaDias').value = '1'; document.getElementById('newFeriaModal').style.display = 'flex'; }
+      if (tipo === 'newAdmin') { document.getElementById('adminNome').value = ''; document.getElementById('adminEmail').value = ''; document.getElementById('adminTipo').value = 'false'; document.getElementById('newAdminModal').style.display = 'flex'; }
+    }
+
     function fecharModal(tipo) {
       if (tipo === 'newColab') document.getElementById('newColabModal').style.display = 'none';
       if (tipo === 'newFeria') document.getElementById('newFeriaModal').style.display = 'none';
+      if (tipo === 'editarFeria') document.getElementById('editarFeriaModal').style.display = 'none';
+      if (tipo === 'newAdmin') document.getElementById('newAdminModal').style.display = 'none';
+      if (tipo === 'historico') document.getElementById('historicoModal').style.display = 'none';
       if (tipo === 'novoPeriodo') document.getElementById('novoPeriodoModal').style.display = 'none';
       if (tipo === 'all') document.querySelectorAll('[id\$="Modal"]').forEach(m => m.style.display = 'none');
+    }
+
+    function mostrarTab(id, btn) {
+      if (!isAdmin && (id === 'backup' || id === 'auditoria' || id === 'admins')) { alert('Acesso negado!'); return; }
+      fecharModal('all');
+      document.querySelectorAll('[id\$="-tab"]').forEach(t => t.style.display = 'none');
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(id + '-tab').style.display = 'block';
+      btn.classList.add('active');
+      if (id === 'ferias') carregarFerias();
+      if (id === 'relatorios') carregarRelatorios();
+      if (id === 'admins') carregarAdmins();
+      if (id === 'auditoria') carregarAuditoria();
     }
 
     function logout() { localStorage.removeItem('usuario_ferias'); location.reload(); }
@@ -330,7 +641,7 @@ const HTML = `<!DOCTYPE html>
 </div>
 
 <div id="dashboard">
-  <div class="topbar">
+  <div class="topbar" id="topbar">
     <div style="display: flex; gap: 15px; align-items: center;">
       <img id="logoImg" style="height: 50px; object-fit: contain;">
       <h1>Férias - Lojas Neitzke</h1>
@@ -345,6 +656,10 @@ const HTML = `<!DOCTYPE html>
     <div class="tabs">
       <button class="tab active" onclick="mostrarTab('colabs', this)">Colaboradores</button>
       <button class="tab" onclick="mostrarTab('ferias', this)">Férias</button>
+      <button class="tab" onclick="mostrarTab('relatorios', this)">Relatórios</button>
+      <button class="tab" onclick="mostrarTab('backup', this)">Backup</button>
+      <button class="tab" onclick="mostrarTab('admins', this)">Admins</button>
+      <button class="tab" onclick="mostrarTab('auditoria', this)">Auditoria</button>
     </div>
 
     <div id="colabs-tab" class="card">
@@ -358,10 +673,38 @@ const HTML = `<!DOCTYPE html>
       <button class="btn btn-success" onclick="abrirModal('newFeria')">+ Registrar</button>
       <div id="listaFerias" style="margin-top: 20px;"></div>
     </div>
+
+    <div id="relatorios-tab" class="card" style="display:none;">
+      <h2>Relatórios</h2>
+      <div style="margin-bottom: 20px;">
+        <button class="btn btn-success" onclick="selecionarTodos()">Selecionar Todos</button>
+        <button class="btn" onclick="limparSelecao()">Limpar</button>
+        <button class="btn btn-success" style="margin-left: 20px;" onclick="gerarRelatorio()">Gerar</button>
+      </div>
+      <div id="listaRelatorios" style="margin-top: 20px;"></div>
+    </div>
+
+    <div id="backup-tab" class="card" style="display:none;">
+      <h2>Backup</h2>
+      <button class="btn btn-success" onclick="exportarBackup()">Exportar</button>
+      <button class="btn btn-success" style="background: #6C63FF;" onclick="document.getElementById('uploadBackup').click()">Importar</button>
+      <input type="file" id="uploadBackup" style="display: none;" accept=".json" onchange="importarBackup(event)">
+    </div>
+
+    <div id="admins-tab" class="card" style="display:none;">
+      <h2>Usuários</h2>
+      <button class="btn btn-success" onclick="abrirModal('newAdmin')">+ Novo</button>
+      <div id="listaAdmins" style="margin-top: 20px;"></div>
+    </div>
+
+    <div id="auditoria-tab" class="card" style="display:none;">
+      <h2>Auditoria</h2>
+      <div id="listaAuditoria" style="margin-top: 20px;"></div>
+    </div>
   </div>
 </div>
 
-<div class="modal" id="newColabModal">
+<div class="modal" id="newColabModal" style="display: none;">
   <div class="modal-box">
     <h2 class="modal-title">Novo Colaborador</h2>
     <div class="form-group"><label>Nome</label><input type="text" id="colNome" placeholder="Nome"></div>
@@ -372,7 +715,7 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
-<div class="modal" id="newFeriaModal">
+<div class="modal" id="newFeriaModal" style="display: none;">
   <div class="modal-box">
     <h2 class="modal-title">Registrar Férias</h2>
     <div class="form-group"><label>Colaborador</label><select id="feriaColab" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"><option>Selecione</option></select></div>
@@ -383,17 +726,38 @@ const HTML = `<!DOCTYPE html>
   </div>
 </div>
 
-<div class="modal" id="trocarSenhaModal">
+<div class="modal" id="editarFeriaModal" style="display: none;">
+  <div class="modal-box">
+    <h2 class="modal-title">Editar Férias</h2>
+    <div class="form-group"><label>Início</label><input type="date" id="feriaEditInicio" onchange="calcularDiasEdit()"></div>
+    <div class="form-group"><label>Fim</label><input type="date" id="feriaEditFim" onchange="calcularDiasEdit()"></div>
+    <div class="form-group"><label>Dias</label><input type="number" id="feriaEditDias" readonly></div>
+    <div style="display: flex; gap: 10px;"><button class="btn" onclick="fecharModal('editarFeria')">Cancelar</button><button class="btn btn-success" id="btnSalvarEdicaoFeria">Salvar</button></div>
+  </div>
+</div>
+
+<div class="modal" id="newAdminModal" style="display: none;">
+  <div class="modal-box">
+    <h2 class="modal-title">Novo Usuário</h2>
+    <div class="form-group"><label>Nome</label><input type="text" id="adminNome" placeholder="Nome"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="adminEmail" placeholder="email@example.com"></div>
+    <div class="form-group"><label>Tipo</label><select id="adminTipo" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"><option value="false">Usuário Normal</option><option value="true">Admin</option></select></div>
+    <div style="display: flex; gap: 10px;"><button class="btn" onclick="fecharModal('newAdmin')">Cancelar</button><button class="btn btn-success" onclick="criarAdmin()">Criar</button></div>
+  </div>
+</div>
+
+<div class="modal" id="trocarSenhaModal" style="display: none;">
   <div class="modal-box">
     <h2 class="modal-title">Trocar Senha (Primeiro Acesso)</h2>
     <p style="color: #666; font-size: 13px; margin-bottom: 20px;">Escolha uma nova senha segura.</p>
+    <div class="form-group"><label>Senha Atual</label><input type="password" id="senhaAtual" readonly style="background: #f5f5f5;"></div>
     <div class="form-group"><label>Nova Senha</label><input type="password" id="novaSenha" placeholder="Senha"></div>
     <div class="form-group"><label>Confirmar</label><input type="password" id="confirmarSenha" placeholder="Confirmar"></div>
     <div style="display: flex; gap: 10px;"><button class="btn btn-success" onclick="confirmarTrocaSenha()">Salvar</button></div>
   </div>
 </div>
 
-<div class="modal" id="novoPeriodoModal">
+<div class="modal" id="novoPeriodoModal" style="display: none;">
   <div class="modal-box">
     <h2 class="modal-title">Novo Período</h2>
     <div class="form-group"><label>Colaborador</label><input type="text" id="periodoColab" readonly style="background: #f5f5f5;"></div>
@@ -403,6 +767,14 @@ const HTML = `<!DOCTYPE html>
     <div class="form-group"><label>Dias</label><input type="number" id="novoperiodoDias" value="30"></div>
     <div style="background: #f0f8ff; padding: 12px; border-radius: 6px; margin-bottom: 15px;"><p style="font-size: 12px; color: #333; margin: 0;"><strong>Saldo Atual:</strong> <span id="saldoAtual">0</span> dias</p><p style="font-size: 12px; color: #333; margin: 5px 0;"><strong>Novo Saldo:</strong> <span id="saldoNovo" style="color: var(--success); font-weight: 700;">0</span> dias</p></div>
     <div style="display: flex; gap: 10px;"><button class="btn" onclick="fecharModal('novoPeriodo')">Cancelar</button><button class="btn btn-success" onclick="confirmarNovoPeriodo()">Confirmar</button></div>
+  </div>
+</div>
+
+<div class="modal" id="historicoModal" style="display: none;">
+  <div class="modal-box" style="max-width: 600px;">
+    <h2 class="modal-title" id="historicoTitulo">Histórico</h2>
+    <div id="historicoConteudo"></div>
+    <div style="display: flex; gap: 10px; margin-top: 20px;"><button class="btn btn-success" onclick="exportarPDF()">Exportar PDF</button><button class="btn" onclick="fecharModal('historico')">Fechar</button></div>
   </div>
 </div>
 
