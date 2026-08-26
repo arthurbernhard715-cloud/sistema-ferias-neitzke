@@ -557,7 +557,11 @@ const HTML = `<!DOCTYPE html>
       let html = '';
       if (data && data.length) {
         html = '<table><tr><th>Início</th><th>Fim</th><th>Dias</th><th>Obs</th></tr>';
-        data.forEach(f => { html += '<tr><td>' + f.data_inicio + '</td><td>' + f.data_fim + '</td><td>' + f.dias_utilizados + '</td><td>' + (f.observacoes || '-') + '</td></tr>'; });
+        data.forEach(f => {
+          const dataInicio = new Date(f.data_inicio).toLocaleDateString('pt-BR');
+          const dataFim = new Date(f.data_fim).toLocaleDateString('pt-BR');
+          html += '<tr><td>' + dataInicio + '</td><td>' + dataFim + '</td><td>' + f.dias_utilizados + '</td><td>' + (f.observacoes || '-') + '</td></tr>';
+        });
         html += '</table>';
         const total = data.reduce((sum, f) => sum + f.dias_utilizados, 0);
         html += '<p style="margin-top: 15px; color: var(--primary); font-weight: 600;">Total: ' + total + ' dias</p>';
