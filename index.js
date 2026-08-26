@@ -203,8 +203,10 @@ const HTML = `<!DOCTYPE html>
       let html = '<table><tr><th>Colaborador</th><th>Início</th><th>Fim</th><th>Dias</th><th>Registrado em</th><th>Ação</th></tr>';
       if (data && data.length) {
         data.forEach(f => {
+          const dataInicio = new Date(f.data_inicio).toLocaleDateString('pt-BR');
+          const dataFim = new Date(f.data_fim).toLocaleDateString('pt-BR');
           const dataRegistro = new Date(f.criado_em).toLocaleDateString('pt-BR');
-          html += '<tr><td>' + f.colaboradores.nome + '</td><td>' + f.data_inicio + '</td><td>' + f.data_fim + '</td><td>' + f.dias_utilizados + '</td><td style="font-size: 12px; color: #999;">' + dataRegistro + '</td>';
+          html += '<tr><td>' + f.colaboradores.nome + '</td><td>' + dataInicio + '</td><td>' + dataFim + '</td><td>' + f.dias_utilizados + '</td><td style="font-size: 12px; color: #999;">' + dataRegistro + '</td>';
           html += '<td><button class="btn" onclick="deletarFeria(' + f.id + ', ' + f.colaborador_id + ', ' + f.dias_utilizados + ')">Deletar</button></td></tr>';
         });
       } else {
