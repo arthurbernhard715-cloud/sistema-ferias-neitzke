@@ -547,7 +547,7 @@ const HTML = `<!DOCTYPE html>
     </div>
     <div class="form-group">
       <label>Senha</label>
-      <input type="password" id="loginSenha" placeholder="Senha" onkeypress="if(event.key==\\'Enter\\') fazerLogin()">
+      <input type="password" id="loginSenha" placeholder="Senha" onkeypress="if(event.key=='Enter') fazerLogin()">
     </div>
     <button class="btn-primary" onclick="fazerLogin()">Entrar</button>
   </div>
