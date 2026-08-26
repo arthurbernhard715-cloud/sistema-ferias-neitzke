@@ -418,8 +418,8 @@ const HTML = `<!DOCTYPE html>
         totalGeralDias += diasUsados;
         totalColaboradores++;
       }
-      htmlContent += '<div style="background: #1A3C8F; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-top: 30px;"><h2 style="font-size: 16px; margin-bottom: 10px;">TOTALIZAÇÕES</h2><p style="font-size: 14px; margin: 5px 0;">Colaboradores: <strong>' + totalColaboradores + '</strong></p><p style="font-size: 14px; margin: 5px 0;">Dias Utilizados: <strong>' + totalGeralDias + '</strong></p></div>';
-      const opt = { margin: 10, filename: 'Relatorio_Ferias_' + new Date().toISOString().split('T')[0] + '.pdf', html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' } };
+      htmlContent += '<div style="page-break-before: always; margin-top: 40px; background: #1A3C8F; color: white; padding: 30px; border-radius: 8px; text-align: center;"><h2 style="font-size: 18px; margin-bottom: 20px;">TOTALIZAÇÕES</h2><p style="font-size: 15px; margin: 10px 0;">Colaboradores: <strong>' + totalColaboradores + '</strong></p><p style="font-size: 15px; margin: 10px 0;">Dias Utilizados: <strong>' + totalGeralDias + '</strong></p></div>';
+      const opt = { margin: 15, filename: 'Relatorio_Ferias_' + new Date().toISOString().split('T')[0] + '.pdf', html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' } };
       html2pdf().set(opt).from(htmlContent).save();
     }
 
