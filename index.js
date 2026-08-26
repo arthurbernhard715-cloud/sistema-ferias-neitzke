@@ -207,13 +207,25 @@ const HTML = `<!DOCTYPE html>
           const dataFim = new Date(f.data_fim).toLocaleDateString('pt-BR');
           const dataRegistro = new Date(f.criado_em).toLocaleDateString('pt-BR');
           html += '<tr><td>' + f.colaboradores.nome + '</td><td>' + dataInicio + '</td><td>' + dataFim + '</td><td>' + f.dias_utilizados + '</td><td style="font-size: 12px; color: #999;">' + dataRegistro + '</td>';
-          html += '<td><button class="btn btn-success" onclick="abrirEditarFeria(' + f.id + ', ' + f.colaborador_id + ', \'' + f.data_inicio + '\', \'' + f.data_fim + '\', ' + f.dias_utilizados + ')" style="background: #6C63FF;">Editar</button> <button class="btn" onclick="deletarFeria(' + f.id + ', ' + f.colaborador_id + ', ' + f.dias_utilizados + ')">Deletar</button></td></tr>';
+          html += '<td><button class="btn btn-success btn-editar-feria" data-id="' + f.id + '" data-colab-id="' + f.colaborador_id + '" data-inicio="' + f.data_inicio + '" data-fim="' + f.data_fim + '" data-dias="' + f.dias_utilizados + '" style="background: #6C63FF;">Editar</button> <button class="btn" onclick="deletarFeria(' + f.id + ', ' + f.colaborador_id + ', ' + f.dias_utilizados + ')">Deletar</button></td></tr>';
         });
       } else {
         html += '<tr><td colspan="6" style="text-align: center;">Nenhuma féria</td></tr>';
       }
       html += '</table>';
-      document.getElementById('listaFerias').innerHTML = html;
+      const container = document.getElementById('listaFerias');
+      container.innerHTML = html;
+      
+      container.querySelectorAll('.btn-editar-feria').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const id = this.getAttribute('data-id');
+          const colabId = this.getAttribute('data-colab-id');
+          const inicio = this.getAttribute('data-inicio');
+          const fim = this.getAttribute('data-fim');
+          const dias = this.getAttribute('data-dias');
+          abrirEditarFeria(id, colabId, inicio, fim, dias);
+        });
+      });
     }
 
     function calcularDias() {
