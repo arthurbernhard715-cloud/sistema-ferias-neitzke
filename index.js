@@ -279,6 +279,10 @@ const HTML = `<!DOCTYPE html>
       document.getElementById('feriaEditFim').value = dataFim;
       document.getElementById('feriaEditDias').value = dias;
       document.getElementById('editarFeriaModal').style.display = 'flex';
+      
+      const btnSalvar = document.getElementById('btnSalvarEdicaoFeria');
+      btnSalvar.onclick = null;
+      btnSalvar.addEventListener('click', salvarEdicaoFeria, { once: true });
     }
 
     function calcularDiasEdit() {
@@ -523,6 +527,7 @@ const HTML = `<!DOCTYPE html>
     function fecharModal(tipo) {
       if (tipo === 'newColab') document.getElementById('newColabModal').style.display = 'none';
       if (tipo === 'newFeria') document.getElementById('newFeriaModal').style.display = 'none';
+      if (tipo === 'editarFeria') document.getElementById('editarFeriaModal').style.display = 'none';
       if (tipo === 'newAdmin') document.getElementById('newAdminModal').style.display = 'none';
       if (tipo === 'historico') document.getElementById('historicoModal').style.display = 'none';
       if (tipo === 'novoPeriodo') document.getElementById('novoPeriodoModal').style.display = 'none';
@@ -654,7 +659,7 @@ const HTML = `<!DOCTYPE html>
     <div class="form-group"><label>Início</label><input type="date" id="feriaEditInicio" onchange="calcularDiasEdit()"></div>
     <div class="form-group"><label>Fim</label><input type="date" id="feriaEditFim" onchange="calcularDiasEdit()"></div>
     <div class="form-group"><label>Dias</label><input type="number" id="feriaEditDias" readonly></div>
-    <div style="display: flex; gap: 10px;"><button class="btn" onclick="fecharModal('editarFeria')">Cancelar</button><button class="btn btn-success" onclick="salvarEdicaoFeria()">Salvar</button></div>
+    <div style="display: flex; gap: 10px;"><button class="btn" onclick="fecharModal('editarFeria')">Cancelar</button><button class="btn btn-success" id="btnSalvarEdicaoFeria">Salvar</button></div>
   </div>
 </div>
 
