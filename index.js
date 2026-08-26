@@ -518,11 +518,22 @@ function exportarPDF() {
 }
 
 function abrirModal(tipo) {
-  if (tipo === 'newColab') document.getElementById('newColabModal').style.display = 'flex';
+  // Fecha todos primeiro
+  document.querySelectorAll('[id$="Modal"]').forEach(m => m.style.display = 'none');
+  
+  if (tipo === 'newColab') {
+    document.getElementById('colNome').value = '';
+    document.getElementById('colPeriodo').value = '';
+    document.getElementById('colDias').value = '30';
+    document.getElementById('newColabModal').style.display = 'flex';
+  }
   if (tipo === 'newFeria') {
     const sel = document.getElementById('feriaColab');
     sel.innerHTML = '<option>Selecione</option>';
     colabs.forEach(c => { sel.innerHTML += '<option value="' + c.id + '">' + c.nome + '</option>'; });
+    document.getElementById('feriaInicio').value = '';
+    document.getElementById('feriaFim').value = '';
+    document.getElementById('feriaDias').value = '1';
     document.getElementById('newFeriaModal').style.display = 'flex';
   }
   if (tipo === 'newAdmin') {
@@ -539,6 +550,7 @@ function fecharModal(tipo) {
   if (tipo === 'newAdmin') document.getElementById('newAdminModal').style.display = 'none';
   if (tipo === 'historico') document.getElementById('historicoModal').style.display = 'none';
   if (tipo === 'novoPeriodo') document.getElementById('novoPeriodoModal').style.display = 'none';
+  if (tipo === 'all') document.querySelectorAll('[id$="Modal"]').forEach(m => m.style.display = 'none');
 }
 
 async function carregarRelatorios() {
@@ -620,6 +632,7 @@ async function gerarRelatorio() {
 }
 
 function mostrarTab(id, btn) {
+  fecharModal('all');
   document.querySelectorAll('[id$="-tab"]').forEach(t => t.style.display = 'none');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById(id + '-tab').style.display = 'block';
