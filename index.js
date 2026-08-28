@@ -265,8 +265,8 @@ const HTML = `<!DOCTYPE html>
       let html = '<table><tr><th>Colaborador</th><th>Início</th><th>Fim</th><th>Dias</th><th>Registrado em</th><th>Ação</th></tr>';
       if (data && data.length) {
         data.forEach(f => {
-          const dataInicio = new Date(f.data_inicio).toLocaleDateString('pt-BR');
-          const dataFim = new Date(f.data_fim).toLocaleDateString('pt-BR');
+          const dataInicio = f.data_inicio.split('-').reverse().join('/');
+          const dataFim = f.data_fim.split('-').reverse().join('/');
           const dataRegistro = new Date(f.criado_em).toLocaleDateString('pt-BR');
           html += '<tr><td>' + f.colaboradores.nome + '</td><td>' + dataInicio + '</td><td>' + dataFim + '</td><td>' + f.dias_utilizados + '</td><td style="font-size: 12px; color: #999;">' + dataRegistro + '</td>';
           html += '<td><button class="btn btn-success btn-editar-feria" data-id="' + f.id + '" data-colab-id="' + f.colaborador_id + '" data-inicio="' + f.data_inicio + '" data-fim="' + f.data_fim + '" data-dias="' + f.dias_utilizados + '" style="background: #6C63FF;">Editar</button> <button class="btn" onclick="deletarFeria(' + f.id + ', ' + f.colaborador_id + ', ' + f.dias_utilizados + ')">Deletar</button></td></tr>';
