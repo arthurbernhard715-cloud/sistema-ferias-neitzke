@@ -311,7 +311,9 @@ const HTML = `<!DOCTYPE html>
         let msg = 'ATENCAO: Saldo ficará negativo!\\n\\nColaborador: ' + c.nome + '\\nSaldo atual: ' + c.dias_disponiveis + '\\nDias a lançar: ' + dias + '\\nNovo saldo: ' + novoSaldo + '\\n\\nDeseja continuar?';
         if (!confirm(msg)) return;
       }
-      await sb.from('ferias').insert({ colaborador_id: cid, data_inicio: inicio, data_fim: fim, dias_utilizados: dias, observacoes: '', criado_em: new Date().toISOString() });
+      const agora = new Date();
+      const criadoEm = new Date(agora.getTime() - agora.getTimezoneOffset() * 60000).toISOString();
+      await sb.from('ferias').insert({ colaborador_id: cid, data_inicio: inicio, data_fim: fim, dias_utilizados: dias, observacoes: '', criado_em: criadoEm });
       await sb.from('colaboradores').update({ dias_disponiveis: novoSaldo }).eq('id', cid);
       await registrarLog('REGISTRAR_FERIA', c.nome + ': ' + dias + ' dias (saldo: ' + novoSaldo + ')');
       fecharModal('newFeria');
